@@ -1,4 +1,5 @@
 /.venv
 .env
 node_modules/
+__pycache__/
 /web/node_modules
