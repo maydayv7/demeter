@@ -39,7 +39,9 @@ export const IngestService = {
       pH: parseFloat(sensors.pH),
       EC: parseFloat(sensors.EC),
       temp: parseFloat(sensors.temp),
-      humidity: parseFloat(sensors.humidity)
+      humidity: parseFloat(sensors.humidity),
+      crop: sensors.crop,      // <--- Must include this
+      stage: sensors.stage,
     }));
 
     try {
