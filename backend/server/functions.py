@@ -1,48 +1,38 @@
-import os
-import shutil
 import json
-from fastapi import UploadFile
+from qdrant_client.http import models
 from Qdrant.Store import store_fmu, COLLECTION_NAME
 from Qdrant.Client import client
-from qdrant_client.http import models
 
-async def process_ingest(file: UploadFile, sensors_str: str, metadata_str: str, builder):
+async def process_ingest(image_base64: str, sensors_str: str, metadata_str: str, builder):
     """
-    Handles file saving, FMU creation, and storage logic.
+    Handles FMU creation and storage logic using base64 image.
+    No more temporary files!
     """
-    # 1. Save Image Temporarily
-    temp_filename = f"temp_{file.filename}"
-    with open(temp_filename, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
     try:
-        # 2. Parse Data
+        # 1. Parse Data
         sensor_data = json.loads(sensors_str)
         meta_data = json.loads(metadata_str)
 
-        # 3. Create FMU
-        abs_image_path = os.path.abspath(temp_filename)
-        fmu = builder.create_fmu(abs_image_path, sensor_data, meta_data)
+        # 2. Create FMU directly from base64
+        print(f"📡 Creating FMU from base64 image...")
+        fmu = builder.create_fmu(image_base64, sensor_data, meta_data)
 
-        # 4. Store in Cloud
+        # 3. Store in Cloud
         store_fmu(fmu)
+        print(f"✅ FMU stored successfully: {fmu.id}")
         return {"status": "success", "fmu_id": fmu.id}
 
-    finally:
-        if os.path.exists(temp_filename):
-            os.remove(temp_filename)
+    except Exception as e:
+        print(f"❌ Ingest processing error: {e}")
+        raise
 
-async def process_search(file: UploadFile, sensors_str: str, builder):
+async def process_search(image_base64: str, sensors_str: str, builder):
     """
     Handles image processing, context extraction, and filtered Qdrant search.
+    Uses base64 image instead of temporary files.
     """
-    temp_filename = f"temp_search_{file.filename}"
-    with open(temp_filename, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
     try:
         sensor_data = json.loads(sensors_str)
-        abs_image_path = os.path.abspath(temp_filename)
 
         # --- STEP 1: Context Extraction ---
         target_crop = sensor_data.get("crop")
@@ -70,12 +60,14 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
             ]
         )
 
-        # --- STEP 4: Generate Vector ---
-        query_fmu = builder.create_fmu(abs_image_path, numeric_sensors, metadata=metadata)
+        # --- STEP 4: Generate Vector from base64 ---
+        print(f"🧠 Generating query vector from base64 image...")
+        query_fmu = builder.create_fmu(image_base64, numeric_sensors, metadata=metadata)
         query_vector = query_fmu.vector.tolist() if hasattr(query_fmu.vector, 'tolist') else query_fmu.vector
 
         # --- STEP 5: Search ---
         try:
+            print(f"🔍 Searching Qdrant with filters...")
             response = client.query_points(
                 collection_name=COLLECTION_NAME,
                 query=query_vector,
@@ -84,17 +76,19 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
                 with_payload=True
             )
             hits = response.points
+            print(f"✅ Found {len(hits)} matches")
         except Exception as filter_error:
             # Fallback for missing indexes
             if "Index required" in str(filter_error):
-                print("⚠️ Index missing. Falling back to unfiltered search.")
+                print("⚠️ Payload indexes missing. Falling back to unfiltered search.")
+                print("💡 Run 'python create_indexes.py' to enable filtered searches.")
                 response = client.search(
                     collection_name=COLLECTION_NAME,
                     query_vector=query_vector,
                     limit=5,
                     with_payload=True
                 )
-                hits = response
+                hits = response.points
             else:
                 raise filter_error
 
@@ -105,6 +99,6 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
         ]
         return {"results": results}
 
-    finally:
-        if os.path.exists(temp_filename):
-            os.remove(temp_filename)
+    except Exception as e:
+        print(f"❌ Search processing error: {e}")
+        raise
