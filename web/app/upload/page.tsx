@@ -17,6 +17,7 @@ export default function UnifiedPage() {
   const [loadingSearch, setLoadingSearch] = useState(false);
   
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [textQuery, setTextQuery] = useState("");
   
   // 🧠 State for the Supervisor's Output
   const [decision, setDecision] = useState<AgentDecision | null>(null);
@@ -60,27 +61,67 @@ export default function UnifiedPage() {
     }
   };
 
+  // Add state to store the ID of the current query
+  const [currentQueryId, setCurrentQueryId] = useState<string | null>(null);
+
   const handleSearch = async () => {
     if (!file) return alert("Please select an image to search with.");
     setLoadingSearch(true);
-    setDecision(null); // Clear previous decision while thinking...
+    setDecision(null);
 
     try {
       const response = await IngestService.searchFMU(file, sensors);
       
       setSearchResults(response.search_results || []);
       
-      // 🧠 Capture the Agent Decision from Backend
       if (response.agent_decision) {
         setDecision(response.agent_decision);
       }
-
-      if ((response.search_results || []).length === 0 && !response.agent_decision) {
-        alert("No similar memories or insights found.");
+      
+      // 👇 Capture the ID of the newly created FMU
+      if (response.new_fmu_id) {
+        setCurrentQueryId(response.new_fmu_id);
+        console.log("Query Logged with ID:", response.new_fmu_id);
       }
+
     } catch (error) {
       console.error(error);
-      alert("❌ Search Failed. Check console.");
+      alert("❌ Search Failed.");
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
+  const handleTextQuery = async () => {
+    if (!textQuery) return;
+    setLoadingSearch(true);
+    setSearchResults([]); // Clear old results
+
+    try {
+      const formData = new FormData();
+      formData.append("query", textQuery);
+
+      const res = await fetch("http://localhost:8000/query-text", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+
+      if (data.results) {
+        // Map the "scroll" results to your "search result" format
+        // @ts-ignore
+        const mappedResults = data.results.map(r => ({
+          id: r.id,
+          score: 1.0, // Text search matches are exact, so 100% score
+          payload: r.payload
+        }));
+        setSearchResults(mappedResults);
+        
+        if (mappedResults.length === 0) alert("No records found matching that description.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Text Query Failed");
     } finally {
       setLoadingSearch(false);
     }
@@ -115,6 +156,25 @@ export default function UnifiedPage() {
             )}
           </div>
         </div>
+
+        {/* 🔍 TEXT SEARCH BAR */}
+<div className="max-w-6xl w-full mb-8">
+  <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 flex gap-4">
+    <input 
+      type="text" 
+      value={textQuery}
+      onChange={(e) => setTextQuery(e.target.value)}
+      placeholder="Ask Demeter: 'Show me all failed Lettuce crops' or 'Show me Batch-001'"
+      className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500"
+    />
+    <button 
+      onClick={handleTextQuery}
+      className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold transition-colors"
+    >
+      Ask
+    </button>
+  </div>
+</div>
 
         {/* Right: Inputs & Actions */}
         <div className="space-y-8 flex flex-col justify-center">
@@ -234,6 +294,25 @@ export default function UnifiedPage() {
         </div>
       )}
       {/* 🧠 END REASONING SECTION */}
+      {/* {decision && currentQueryId && (
+    <div className="mt-4 bg-slate-900 p-4 rounded-xl border border-slate-700">
+      <h4 className="text-white font-bold mb-2">Report Outcome</h4>
+      <div className="flex gap-2">
+        <button 
+          onClick={() => submitFeedback(currentQueryId, decision.action, "Effective")}
+          className="px-4 py-2 bg-green-600 rounded text-sm hover:bg-green-500"
+        >
+          It Worked!
+        </button>
+        <button 
+          onClick={() => submitFeedback(currentQueryId, decision.action, "Ineffective")}
+          className="px-4 py-2 bg-red-600 rounded text-sm hover:bg-red-500"
+        >
+          Failed
+        </button>
+      </div>
+    </div>
+)} */}
 
 
       {/* Bottom Section: Search Results */}

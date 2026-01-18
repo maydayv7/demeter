@@ -42,13 +42,30 @@ class FMUBuilder:
         # Combine vectors
         fmu_vector = np.concatenate([img_vec, sensor_vec]).tolist()
 
+        # --- UPDATE START ---
+        # 1. Ensure metadata is a dictionary
+        if metadata is None:
+            metadata = {}
+
+        # 2. Construct the full payload for Qdrant
+        # We merge sensor data + metadata + new schema fields
+        final_payload = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "sensors": sensor_data,  # Critical: Store raw values for Frontend display
+            **metadata,              # Unpack crop, stage, etc.
+            "crop_id": metadata.get("crop_id", "UNKNOWN_CROP"),
+            "sequence_number": metadata.get("sequence_number", 1),
+            
+            # 👇 NEW SCHEMA PARAMETERS (Initialized with Placeholders)
+            "action_taken": metadata.get("action_taken", "PENDING_ACTION"),
+            "outcome": metadata.get("outcome", "PENDING_OBSERVATION")
+        }
+        # --- UPDATE END ---
+
         return FMU(
             id=str(uuid.uuid4()),
             vector=fmu_vector,
-            metadata={
-                **(metadata or {}),
-                "timestamp": datetime.utcnow().isoformat(),
-            }
+            metadata=final_payload # This becomes the Qdrant Payload
         )
     
     def _is_base64(self, s):
@@ -100,8 +117,6 @@ class FMUBuilder:
         image_stream = io.BytesIO(image_bytes)
         
         # Encode using VisionEncoder
-        # If VisionEncoder only accepts paths, you may need to update it
-        # to also accept BytesIO objects or PIL Images
         return self.vision.encode(image_stream)
 
 
@@ -125,7 +140,9 @@ if __name__ == "__main__":
 
     print("✅ FMU ID:", fmu.id)
     print("✅ Vector length:", len(fmu.vector))
-    print("✅ Metadata:", fmu.metadata)
-
-    # Test with file path
-    # fmu2 = builder.create_fmu("path/to/image.png", sensors, {"crop": "basil"})
+    
+    # Check for the new fields in the output
+    print("\n🔍 Checking Schema:")
+    print(f"   - Action: {fmu.metadata.get('action_taken')}")
+    print(f"   - Outcome: {fmu.metadata.get('outcome')}")
+    print(f"   - Sensors Saved: {'sensors' in fmu.metadata}")

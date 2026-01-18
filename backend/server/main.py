@@ -13,8 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from Sentinel.agent import FMUBuilder
 
 # Import the logic functions
-from backend.server.functions import process_ingest, process_search 
-
+from backend.server.functions import process_ingest, process_search, process_text_query
 app = FastAPI()
 
 app.add_middleware(
@@ -60,6 +59,10 @@ async def search_endpoint(
         import traceback
         traceback.print_exc()
         return {"status": "error", "message": str(e)}
+
+@app.post("/query-text")
+async def text_query_endpoint(query: str = Form(...)):
+    return await process_text_query(query)
 
 if __name__ == "__main__":
     import uvicorn
