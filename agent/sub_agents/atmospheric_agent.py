@@ -2,7 +2,7 @@ import os
 from openai import OpenAI
 
 # Configuration
-MODEL_ID = "llama3-70b-8192"
+MODEL_ID = "openai/gpt-oss-120b"
 API_KEY = os.environ.get("GROQ_API_KEY")
 
 class AtmosphericAgent:

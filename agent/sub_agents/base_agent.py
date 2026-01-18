@@ -1,9 +1,13 @@
 import os
 from openai import OpenAI
+from dotenv import load_dotenv  # 🆕 Import this
+
+# 🆕 Load environment variables from .env file
+load_dotenv()
 
 # --- GROQ CONFIGURATION ---
 # Common Groq Models: "llama3-70b-8192", "mixtral-8x7b-32768"
-MODEL_ID = "llama3-70b-8192"
+MODEL_ID = "openai/gpt-oss-120b"
 API_KEY = os.environ.get("GROQ_API_KEY")
 
 class BaseReasoningAgent:
