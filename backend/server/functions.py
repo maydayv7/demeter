@@ -86,8 +86,32 @@ async def process_ingest(file: UploadFile, sensors_str: str, metadata_str: str, 
         meta_data = json.loads(metadata_str)
         abs_image_path = os.path.abspath(temp_filename)
         
+        # --- 🟢 NEW: Add Sequence & ID Logic (Same as process_search) ---
+        target_crop = meta_data.get("crop", "Unknown")
+        
+        # 1. Get Crop ID (Prefer metadata, fall back to sensor data, then auto-generate)
+        target_crop_id = meta_data.get("crop_id") or sensor_data.get("crop_id")
+        if not target_crop_id:
+             target_crop_id = f"Batch_{target_crop}_{datetime.now().strftime('%Y%m')}"
+        
+        # 2. Calculate Sequence Number automatically
+        seq_num = get_next_sequence_number(target_crop_id)
+        
+        print(f"📥 Ingesting {target_crop_id} | Snapshot #{seq_num}")
+
+        # 3. Inject into Metadata BEFORE creating FMU
+        meta_data.update({
+            "crop_id": target_crop_id,
+            "sequence_number": seq_num,
+            # Ensure placeholders exist if not provided
+            "action_taken": meta_data.get("action_taken", "PENDING_ACTION"),
+            "outcome": meta_data.get("outcome", "PENDING_OBSERVATION")
+        })
+        # -------------------------------------------------------------
+
         fmu = builder.create_fmu(abs_image_path, sensor_data, meta_data)
         store_fmu(fmu)
+        
         return {"status": "success", "fmu_id": fmu.id}
 
     finally:
@@ -206,7 +230,7 @@ async def parse_natural_language_query(query_text: str):
     """
     system_prompt = """
     You are a Database Translator.
-    Your goal: Convert natural language queries into a JSON filter object for a Hydroponic Database.
+    Your goal: Convert natural language queries (English, Hindi, Hinglish, etc.) into a JSON filter object for a Hydroponic Database.
     
     AVAILABLE FIELDS:
     - crop (e.g., Lettuce, Basil, Tomato)
@@ -216,15 +240,20 @@ async def parse_natural_language_query(query_text: str):
     - crop_id (e.g., "Batch_Lettuce_2026")
 
     RULES:
-    1. If user says "poor health", "bad", "failed" or similar negative words, map to outcome="Negative".
-    2. If user says "good", "healthy" or other positive words, map to outcome="Positive".
-    3. Output strictly JSON matching this structure:
+    1. TRANSLATION: The user may speak Hindi or mixed "Hinglish". You must map these to the standard English tags.
+       - "Tamatar" -> crop: "Tomato"
+       - "Kharab" / "Sadd gaya" / "Bekar" -> outcome: "Negative"
+       - "Accha hai" / "Badhiya" -> outcome: "Positive"
+       - "Paani" / "Water" -> (No direct filter unless context implies outcome)
+    2. If user says "poor health", "bad", "failed" or similar negative words, map to outcome="Negative".
+    3. If user says "good", "healthy" or other positive words, map to outcome="Positive".
+    4. Output strictly JSON matching this structure:
        {
          "must": [
             {"key": "field_name", "match": "value"}
          ]
        }
-    4. Return empty list [] if no specific filters apply.
+    5. Return empty list [] if no specific filters apply.
     """
 
     try:
@@ -290,3 +319,47 @@ async def process_text_query(text: str):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
+    
+async def process_audio_search(file: UploadFile):
+    """
+    1. Transcribe Audio (Whisper) -> Text
+    2. Run Text Search (LLM -> Filters)
+    """
+    temp_filename = f"temp_audio_{file.filename}"
+    
+    # Save audio temporarily
+    with open(temp_filename, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        print("🎙️ Transcribing audio (Multilingual)...")
+        audio_file = open(temp_filename, "rb")
+        
+        # 👇 CHANGE THIS MODEL
+        transcription = supervisor.llm.audio.transcriptions.create(
+            file=audio_file,
+            model="whisper-large-v3", # 👈 Use the Multilingual Model (No "-en" suffix)
+            response_format="json",
+            prompt="The audio may contain English or Hindi technical terms about farming." # Optional hint
+        )
+        
+        detected_text = transcription.text
+        print(f"📝 Heard ({transcription.language if hasattr(transcription, 'language') else 'auto'}): '{detected_text}'")
+        
+        # 1. Get the standard search results
+        response_data = await process_text_query(detected_text)
+        # 2. 👇 INJECT the transcription into the response
+        response_data["transcription"] = detected_text
+
+        return response_data
+
+    except Exception as e:
+        print(f"❌ Audio Search Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+    finally:
+        # Cleanup
+        if 'audio_file' in locals():
+            audio_file.close()
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
