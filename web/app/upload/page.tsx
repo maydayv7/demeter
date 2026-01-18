@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { 
   Upload, Save, Activity, Droplets, Thermometer, Wind, Search, 
   Sprout, Calendar, BarChart3, ArrowRight, Brain, ShieldCheck, 
-  CheckCircle, AlertTriangle 
+  CheckCircle, AlertTriangle, Mic, Square
 } from "lucide-react";
 import { SensorData, SearchResult, AgentDecision } from "@/models"; // Ensure AgentDecision is exported in models
 import { IngestService } from "@/services/api";
@@ -18,6 +18,10 @@ export default function UnifiedPage() {
   
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [textQuery, setTextQuery] = useState("");
+
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   
   // 🧠 State for the Supervisor's Output
   const [decision, setDecision] = useState<AgentDecision | null>(null);
@@ -127,6 +131,74 @@ export default function UnifiedPage() {
     }
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      chunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
+        await handleAudioUpload(audioBlob);
+        
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Mic Error:", err);
+      alert("Microphone access denied.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleAudioUpload = async (audioBlob: Blob) => {
+    setLoadingSearch(true);
+    setSearchResults([]); 
+
+    try {
+      const formData = new FormData();
+      // Rename file to .webm so backend recognizes it
+      formData.append("file", audioBlob, "recording.webm");
+
+      const res = await fetch("http://localhost:8000/query-audio", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (data.transcription) {
+        setTextQuery(data.transcription);
+      }
+      // (Reuse the same result mapping logic as Text Search)
+      if (data.results) {
+        // @ts-ignore
+        const mappedResults = data.results.map(r => ({
+          id: r.id,
+          score: 1.0,
+          payload: r.payload
+        }));
+        setSearchResults(mappedResults);
+        if (mappedResults.length === 0) alert("No records found for that audio query.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Audio Query Failed");
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
   // --- UI Render ---
 
   return (
@@ -160,6 +232,18 @@ export default function UnifiedPage() {
         {/* 🔍 TEXT SEARCH BAR */}
 <div className="max-w-6xl w-full mb-8">
   <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 flex gap-4">
+            {/* 🎙️ MICROPHONE BUTTON */}
+      <button
+        onClick={isRecording ? stopRecording : startRecording}
+        className={`p-3 rounded-full transition-all ${
+          isRecording 
+            ? "bg-red-500 animate-pulse text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]" 
+            : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
+        }`}
+        title="Search by Voice"
+      >
+        {isRecording ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+      </button>
     <input 
       type="text" 
       value={textQuery}
