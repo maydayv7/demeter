@@ -2,11 +2,17 @@ import { SensorData, IngestResponse, SearchResponse } from "@/models";
 
 const API_URL = "http://localhost:8000";
 
-export const IngestService = {
-  // ... (keep uploadFMU as is) ...
+// Define the payload type here or import it from models
+interface FeedbackPayload {
+  fmu_id: string;
+  action: string;
+  outcome: string;
+}
 
+export const IngestService = {
+  
+  // 1. Upload Function (Existing)
   async uploadFMU(file: File, sensors: SensorData): Promise<IngestResponse> {
-     // ... (your existing upload code) ...
      const formData = new FormData();
      formData.append("file", file);
      formData.append("sensors", JSON.stringify({
@@ -30,18 +36,19 @@ export const IngestService = {
      }
   },
 
+  // 2. Search Function (Existing)
   async searchFMU(file: File, sensors: SensorData): Promise<SearchResponse> {
     const formData = new FormData();
     formData.append("file", file);
     
-    // We send sensor data because it's part of the vector math!
     formData.append("sensors", JSON.stringify({
       pH: parseFloat(sensors.pH),
       EC: parseFloat(sensors.EC),
       temp: parseFloat(sensors.temp),
       humidity: parseFloat(sensors.humidity),
-      crop: sensors.crop,      // <--- Must include this
+      crop: sensors.crop,
       stage: sensors.stage,
+      crop_id: sensors.crop_id, // <--- Add this
     }));
 
     try {
@@ -55,5 +62,21 @@ export const IngestService = {
       console.error("Search Service Error:", error);
       throw error;
     }
-  }
+  },
+
+  // 3. 👇 ADD THIS MISSING FUNCTION
+  // async sendFeedback(data: FeedbackPayload) {
+  //   try {
+  //     const res = await fetch(`${API_URL}/feedback`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify(data),
+  //     });
+  //     if (!res.ok) throw new Error(`Server Error: ${res.statusText}`);
+  //     return await res.json();
+  //   } catch (error) {
+  //     console.error("Feedback Error:", error);
+  //     throw error;
+  //   }
+  // }
 };
