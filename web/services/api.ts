@@ -3,14 +3,8 @@ import { SensorData, IngestResponse, SearchResponse } from "@/models";
 const API_URL = "http://localhost:8000";
 
 // Define the payload type here or import it from models
-interface FeedbackPayload {
-  fmu_id: string;
-  action: string;
-  outcome: string;
-}
 
 export const IngestService = {
-  
   // 1. Upload Function (Existing)
   async uploadFMU(file: File, sensors: SensorData): Promise<IngestResponse> {
      const formData = new FormData();

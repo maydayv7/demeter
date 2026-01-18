@@ -9,6 +9,7 @@ from datetime import datetime
 # --- AGENT IMPORTS ---
 from agent.sub_agents.Researcher import ResearcherAgent
 from agent.sub_agents.Supervisor import SupervisorAgent
+from agent.sub_agents.Explainer import ExplainerAgent
 from Qdrant.Store import store_fmu, COLLECTION_NAME
 from Qdrant.Client import client
 
@@ -16,6 +17,7 @@ from Qdrant.Client import client
 print("🌱 Initializing Cognitive Stack...")
 researcher = ResearcherAgent()
 supervisor = SupervisorAgent(researcher)
+explainer = ExplainerAgent(supervisor.llm)
 print("✅ Agents Ready.")
 
 # --- HELPER: SIMULATE MINI-AGENTS ---
@@ -86,30 +88,32 @@ async def process_ingest(file: UploadFile, sensors_str: str, metadata_str: str, 
         meta_data = json.loads(metadata_str)
         abs_image_path = os.path.abspath(temp_filename)
         
-        # --- 🟢 NEW: Add Sequence & ID Logic (Same as process_search) ---
+        # --- 1. Identify Context ---
         target_crop = meta_data.get("crop", "Unknown")
         
-        # 1. Get Crop ID (Prefer metadata, fall back to sensor data, then auto-generate)
+        # Get Crop ID (Prefer metadata, fall back to sensor data, then auto-generate)
         target_crop_id = meta_data.get("crop_id") or sensor_data.get("crop_id")
         if not target_crop_id:
              target_crop_id = f"Batch_{target_crop}_{datetime.now().strftime('%Y%m')}"
         
-        # 2. Calculate Sequence Number automatically
+        # Calculate Sequence Number
         seq_num = get_next_sequence_number(target_crop_id)
         
         print(f"📥 Ingesting {target_crop_id} | Snapshot #{seq_num}")
 
-        # 3. Inject into Metadata BEFORE creating FMU
+        # --- 2. Inject Metadata Schema ---
+        # We inject 'explanation_log' here so even "Raw" snapshots match the schema
         meta_data.update({
             "crop_id": target_crop_id,
             "sequence_number": seq_num,
             "sensor_data": sensor_data,
-            # Ensure placeholders exist if not provided
             "action_taken": meta_data.get("action_taken", "PENDING_ACTION"),
-            "outcome": meta_data.get("outcome", "PENDING_OBSERVATION")
+            "outcome": meta_data.get("outcome", "PENDING_OBSERVATION"),
+            "explanation_log": "PENDING_ANALYSIS" # 👈 Ensures Schema Consistency
         })
-        # -------------------------------------------------------------
 
+        # --- 3. Create & Store ---
+        # Note: FMUBuilder handles putting sensor_data into the "sensors" key
         fmu = builder.create_fmu(abs_image_path, sensor_data, meta_data)
         store_fmu(fmu)
         
@@ -152,8 +156,10 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
             "stage": sensor_data.get("stage", "Unknown"),
             "crop_id": target_crop_id,   # <--- Added
             "sequence_number": seq_num,  # <--- Added
+            "sensor_data": sensor_data,
             "action_taken": "PENDING_USER_ACTION", 
-            "outcome": "PENDING_OBSERVATION"
+            "outcome": "PENDING_OBSERVATION",
+            "explanation_log": "PENDING_ANALYSIS"
         }
 
         # Create & Store FMU
@@ -208,12 +214,32 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
             sub_agent_outputs=mini_agent_reports
         )
 
-        # --- STEP 4: Return Result + The New ID ---
+        # --- 🟢 NEW: Run the Explainer ---
+        print("Detailed Explanation Generation...")
+        explanation_log = explainer.explain(
+            current_fmu=current_fmu_context,
+            similar_fmus=similar_fmus_formatted,
+            sub_agent_reports=mini_agent_reports,
+            final_decision=decision_json
+        )
+
+        # Update the FMU Metadata with this log
+        client.set_payload(
+            collection_name=COLLECTION_NAME,
+            points=[query_fmu.id],
+            payload={
+                "action_taken": decision_json.get("decision"),
+                "outcome": "PENDING_FEEDBACK",
+                "explanation_log": explanation_log  # 👈 Saving the detailed text
+            }
+        )
+
         return {
             "status": "success",
-            "new_fmu_id": query_fmu.id, # <--- Frontend needs this for the Feedback Loop
+            "new_fmu_id": query_fmu.id,
             "search_results": [{"id": h.id, "score": h.score, "payload": h.payload} for h in hits],
-            "agent_decision": decision_json
+            "agent_decision": decision_json,
+            "explanation": explanation_log # 👈 Send to Frontend immediately
         }
 
     except Exception as e:
