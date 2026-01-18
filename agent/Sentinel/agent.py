@@ -47,20 +47,21 @@ class FMUBuilder:
         if metadata is None:
             metadata = {}
 
-        # 2. Construct the full payload for Qdrant
-        # We merge sensor data + metadata + new schema fields
         final_payload = {
             "timestamp": datetime.utcnow().isoformat(),
-            "sensors": sensor_data,  # Critical: Store raw values for Frontend display
-            **metadata,              # Unpack crop, stage, etc.
+            
+            # ✅ STORE RAW SENSORS (For Humans/Frontend)
+            "sensors": sensor_data, 
+            
+            # ✅ UNPACK METADATA (crop, stage, etc.)
+            **metadata,
+            
+            # ✅ ENFORCE CRITICAL FIELDS (Defaults if missing)
             "crop_id": metadata.get("crop_id", "UNKNOWN_CROP"),
             "sequence_number": metadata.get("sequence_number", 1),
-            
-            # 👇 NEW SCHEMA PARAMETERS (Initialized with Placeholders)
             "action_taken": metadata.get("action_taken", "PENDING_ACTION"),
             "outcome": metadata.get("outcome", "PENDING_OBSERVATION")
         }
-        # --- UPDATE END ---
 
         return FMU(
             id=str(uuid.uuid4()),
