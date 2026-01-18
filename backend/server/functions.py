@@ -103,6 +103,7 @@ async def process_ingest(file: UploadFile, sensors_str: str, metadata_str: str, 
         meta_data.update({
             "crop_id": target_crop_id,
             "sequence_number": seq_num,
+            "sensor_data": sensor_data,
             # Ensure placeholders exist if not provided
             "action_taken": meta_data.get("action_taken", "PENDING_ACTION"),
             "outcome": meta_data.get("outcome", "PENDING_OBSERVATION")
