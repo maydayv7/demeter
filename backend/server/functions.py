@@ -1,58 +1,101 @@
+import os
+import shutil
 import json
+import traceback
+from fastapi import UploadFile
 from qdrant_client.http import models
+
+# --- AGENT IMPORTS ---
+from agent.sub_agents.Researcher import ResearcherAgent
+from agent.sub_agents.Supervisor import SupervisorAgent
 from Qdrant.Store import store_fmu, COLLECTION_NAME
 from Qdrant.Client import client
 
-async def process_ingest(image_base64: str, sensors_str: str, metadata_str: str, builder):
+# Initialize Agents ONCE (Global Scope) to save memory
+print("🌱 Initializing Cognitive Stack...")
+researcher = ResearcherAgent()
+supervisor = SupervisorAgent(researcher)
+print("✅ Agents Ready.")
+
+# --- HELPER: SIMULATE MINI-AGENTS ---
+# In production, these would be your actual imported classes from agent/sub_agents/
+def simulate_sub_agents(sensors):
     """
-    Handles FMU creation and storage logic using base64 image.
-    No more temporary files!
+    Generates 'Expert Opinions' based on raw sensor data.
     """
+    reports = {}
+    
+    # 1. Nutrient Agent Logic
+    ph = sensors.get("pH", 6.0)
+    ec = sensors.get("EC", 1.5)
+    if ph < 5.5:
+        reports["nutrient"] = f"CRITICAL: pH is {ph} (Too Acidic). Risk of Nutrient Lockout."
+    elif ph > 6.5:
+        reports["nutrient"] = f"WARNING: pH is {ph} (Too Alkaline). Efficiency dropping."
+    else:
+        reports["nutrient"] = f"Optimal pH ({ph}). EC is {ec}."
+
+    # 2. Atmosphere Agent Logic
+    temp = sensors.get("temp", 25)
+    humid = sensors.get("humidity", 60)
+    if temp > 28:
+        reports["atmosphere"] = f"Heat Stress Warning: {temp}°C is too high."
+    elif humid > 80:
+        reports["atmosphere"] = f"High Humidity ({humid}%). Vapor Pressure Deficit (VPD) is low."
+    else:
+        reports["atmosphere"] = "Climate is within nominal range."
+
+    # 3. Resource Agent Logic
+    reports["resources"] = "Water levels stable. Power grid nominal."
+    
+    return reports
+
+async def process_ingest(file: UploadFile, sensors_str: str, metadata_str: str, builder):
+    """
+    Handles file saving, FMU creation, and storage logic.
+    """
+    temp_filename = f"temp_{file.filename}"
+    with open(temp_filename, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
     try:
-        # 1. Parse Data
         sensor_data = json.loads(sensors_str)
         meta_data = json.loads(metadata_str)
-
-        # 2. Create FMU directly from base64
-        print(f"📡 Creating FMU from base64 image...")
-        fmu = builder.create_fmu(image_base64, sensor_data, meta_data)
-
-        # 3. Store in Cloud
+        abs_image_path = os.path.abspath(temp_filename)
+        
+        fmu = builder.create_fmu(abs_image_path, sensor_data, meta_data)
         store_fmu(fmu)
-        print(f"✅ FMU stored successfully: {fmu.id}")
         return {"status": "success", "fmu_id": fmu.id}
 
-    except Exception as e:
-        print(f"❌ Ingest processing error: {e}")
-        raise
+    finally:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
 
-async def process_search(image_base64: str, sensors_str: str, builder):
+async def process_search(file: UploadFile, sensors_str: str, builder):
     """
-    Handles image processing, context extraction, and filtered Qdrant search.
-    Uses base64 image instead of temporary files.
+    1. Search Similar FMUs (Memory)
+    2. Consult Researcher (Knowledge)
+    3. Run Supervisor (Reasoning)
     """
+    temp_filename = f"temp_search_{file.filename}"
+    with open(temp_filename, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
     try:
         sensor_data = json.loads(sensors_str)
+        abs_image_path = os.path.abspath(temp_filename)
 
         # --- STEP 1: Context Extraction ---
-        target_crop = sensor_data.get("crop")
-        target_stage = sensor_data.get("stage")
+        target_crop = sensor_data.get("crop", "Unknown")
+        target_stage = sensor_data.get("stage", "Unknown")
+        print(f"🔎 Pipeline triggered for: {target_crop} ({target_stage})")
 
-        if not target_crop or not target_stage:
-            return {"status": "error", "message": f"Missing crop/stage in: {sensor_data}"}
-
-        print(f"🔎 Context: Searching for {target_crop} ({target_stage})...")
-
-        # --- STEP 2: Separate Numeric Data vs Metadata ---
-        numeric_sensors = {
-            "pH": sensor_data.get("pH"),
-            "EC": sensor_data.get("EC"),
-            "temp": sensor_data.get("temp"),
-            "humidity": sensor_data.get("humidity")
-        }
+        # --- STEP 2: Vector Search (Memory) ---
+        # Separate numeric data for vector construction
+        numeric_sensors = {k: v for k, v in sensor_data.items() if k in ["pH", "EC", "temp", "humidity"]}
         metadata = {"crop": target_crop, "stage": target_stage}
 
-        # --- STEP 3: Create Filter ---
+        # Create Filter
         context_filter = models.Filter(
             must=[
                 models.FieldCondition(key="crop", match=models.MatchValue(value=target_crop)),
@@ -60,45 +103,62 @@ async def process_search(image_base64: str, sensors_str: str, builder):
             ]
         )
 
-        # --- STEP 4: Generate Vector from base64 ---
-        print(f"🧠 Generating query vector from base64 image...")
-        query_fmu = builder.create_fmu(image_base64, numeric_sensors, metadata=metadata)
+        # Create Vector & Search
+        query_fmu = builder.create_fmu(abs_image_path, numeric_sensors, metadata=metadata)
         query_vector = query_fmu.vector.tolist() if hasattr(query_fmu.vector, 'tolist') else query_fmu.vector
 
-        # --- STEP 5: Search ---
         try:
-            print(f"🔍 Searching Qdrant with filters...")
             response = client.query_points(
                 collection_name=COLLECTION_NAME,
                 query=query_vector,
                 query_filter=context_filter,
-                limit=5,
+                limit=3, # Get top 3 similar cases
                 with_payload=True
             )
             hits = response.points
-            print(f"✅ Found {len(hits)} matches")
-        except Exception as filter_error:
-            # Fallback for missing indexes
-            if "Index required" in str(filter_error):
-                print("⚠️ Payload indexes missing. Falling back to unfiltered search.")
-                print("💡 Run 'python create_indexes.py' to enable filtered searches.")
-                response = client.search(
-                    collection_name=COLLECTION_NAME,
-                    query_vector=query_vector,
-                    limit=5,
-                    with_payload=True
-                )
-                hits = response.points
-            else:
-                raise filter_error
+        except Exception:
+            # Fallback to unfiltered if index missing
+            print("⚠️ Filter failed, searching raw vectors...")
+            hits = client.search(collection_name=COLLECTION_NAME, query_vector=query_vector, limit=3, with_payload=True)
 
-        # Format Results
-        results = [
-            {"id": hit.id, "score": hit.score, "payload": hit.payload}
-            for hit in hits
+        # Format Memory for the Supervisor
+        similar_fmus_formatted = [
+            {"score": hit.score, "payload": hit.payload} for hit in hits
         ]
-        return {"results": results}
+
+        # --- STEP 3: The Reasoning Cycle ---
+        print("🧠 Invoking Supervisor Agent...")
+        
+        # A. Get Expert Opinions
+        mini_agent_reports = simulate_sub_agents(numeric_sensors)
+        
+        # B. Construct the Current FMU object for the Supervisor
+        current_fmu_context = {
+            "metadata": metadata,
+            "payload": {"sensors": numeric_sensors}
+        }
+
+        # C. Run the Supervisor Logic (RAG + Groq)
+        decision_json = supervisor.reason(
+            current_fmu=current_fmu_context,
+            similar_fmus=similar_fmus_formatted,
+            sub_agent_outputs=mini_agent_reports
+        )
+
+        # --- STEP 4: Return Combined Result ---
+        return {
+            "status": "success",
+            "search_results": [
+                {"id": hit.id, "score": hit.score, "payload": hit.payload} for hit in hits
+            ],
+            "agent_decision": decision_json # <--- The frontend will render this!
+        }
 
     except Exception as e:
-        print(f"❌ Search processing error: {e}")
-        raise
+        print(f"❌ Pipeline Error: {e}")
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+    finally:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
