@@ -10,7 +10,7 @@ class WaterAgent:
         if not API_KEY:
             self.client = None
         else:
-            self.client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=API_KEY)
+            self.client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=os.getenv("GROQ_API_KEY"))
 
     def reason(self, current_state: dict, research_context: str) -> dict:
         """

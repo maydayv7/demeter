@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 # --- PATH SETUP ---
+# Adds the current directory (agent/) to sys.path so we can import sub_agents and Qdrant
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
@@ -12,7 +13,7 @@ sys.path.append(current_dir)
 from sub_agents.fetching_agent import FetchingAgent
 from sub_agents.atmospheric_agent import AtmosphericAgent
 from sub_agents.water_agent import WaterAgent
-from sub_agents.Researcher import ResearcherAgent # Ensure this file exists
+from sub_agents.Researcher import ResearcherAgent 
 from sub_agents.Supervisor import SupervisorAgent
 
 # Simulator Action URL
@@ -22,11 +23,15 @@ def main():
     print("🚀 Initializing Demeter Orchestrator...")
     
     # 1. Instantiate All Agents
-    fetcher = FetchingAgent()
-    researcher = ResearcherAgent()
-    atmos_agent = AtmosphericAgent()
-    water_agent = WaterAgent()
-    supervisor = SupervisorAgent()
+    try:
+        fetcher = FetchingAgent()
+        researcher = ResearcherAgent()
+        atmos_agent = AtmosphericAgent()
+        water_agent = WaterAgent()
+        supervisor = SupervisorAgent()
+    except Exception as e:
+        print(f"❌ Error initializing agents: {e}")
+        return
 
     while True:
         print("\n" + "="*50)
@@ -34,6 +39,7 @@ def main():
         print("="*50)
         
         # 2. Fetch Reality (Current State + History)
+        # fetcher returns: (FMU object, sensors dict, history list)
         fmu, sensor_snapshot, history = fetcher.fetch_and_process()
         
         if not fmu:
@@ -49,7 +55,11 @@ def main():
         print(f"[Context] Current Sensors: {sensor_snapshot}")
 
         # 3. Get Research Knowledge
-        research_context = researcher.consult_knowledge_base(crop, stage)
+        # FIX: Adapted to use the 'search' method from your Researcher.py
+        search_query = f"optimal hydroponic conditions for {crop} in {stage} stage"
+        print(f"\n[Researcher] 🔎 Searching knowledge base for: '{search_query}'...")
+        
+        research_context = researcher.search(search_query)
         
         # 4. Domain Agent Reasoning
         # They analyze the SENSORS against the RESEARCH
