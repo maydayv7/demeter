@@ -2,7 +2,7 @@ import os
 import json
 from qdrant_client import models
 from Sentinel.fmu import FMU
-from sub_agents.base_agent import BaseReasoningAgent
+from agent.sub_agents.base_agent import BaseReasoningAgent
 from Qdrant.Client import client
 from Qdrant.Store import store_fmu
 

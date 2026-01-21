@@ -13,7 +13,7 @@ from agent.sub_agents.water_and_atmospheric_dependencies.tools import calculate_
 # Configuration
 API_KEY = os.environ.get("GROQ_API_KEY")
 
-MODEL_ID = "llama-3.3-70b-versatile"
+MODEL_ID = "qwen/qwen3-32b"
 
 ATMOS_PROMPT = """
 You are the Atmospheric Specialist for a Hydroponic Farm.
@@ -46,7 +46,7 @@ class AtmosphericAgent:
             llm = ChatOpenAI(
                 base_url="https://api.groq.com/openai/v1", 
                 api_key=API_KEY,
-                model="llama-3.3-70b-versatile",
+                model="qwen/qwen3-32b",
                 temperature=0.2
             )
             
