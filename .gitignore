@@ -1,8 +1,10 @@
-/venv
+/.venv
 .env
 node_modules/
 __pycache__/
 /web/node_modules
 Knowledge_Base
-/.venv
-/agent/venv
+/agent/model/
+/agent/training_data
+agent/Marl/model_bandit_greedy.pkl
+*.pt
