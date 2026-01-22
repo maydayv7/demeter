@@ -3,8 +3,11 @@ import shutil
 import json
 import traceback
 from fastapi import UploadFile
+from groq import Groq
 from qdrant_client.http import models
 from datetime import datetime
+import re 
+from langchain_core.messages import SystemMessage, HumanMessage
 
 # --- AGENT IMPORTS ---
 from agent.sub_agents.Researcher import ResearcherAgent
@@ -146,7 +149,6 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
             print(f"⚠️ Judge Error (Non-Critical): {e}")
 
         # --- 3. STRATEGY (STATIC) ---
-        # 🔴 CHANGED: Hardcoded Standard Strategy instead of Bandit
         strat_name = "STANDARD_MAINTENANCE"
         strat_instr = "Maintain optimal crop-specific parameters. Ensure homeostasis."
         action_idx = 0 # Dummy ID
@@ -233,7 +235,6 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
             "strategy": strat_name,
             "agent_decision": final_decision_json,
             "explanation": explanation_log,
-            # 🟢 FIX: Include 'payload' here so the frontend can read 'crop'
             "search_results": [{"id": h.id, "score": h.score, "payload": h.payload} for h in points_list]
         }
 
@@ -246,19 +247,72 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
 
-async def process_text_query(text: str):
+def extract_json(text):
+    """
+    Robustly extracts the first valid JSON object from a text string,
+    ignoring conversational fluff or markdown blocks.
+    """
     try:
-        from langchain_core.messages import SystemMessage, HumanMessage
+        # 1. Try finding content inside ```json ... ```
+        match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if match:
+            return json.loads(match.group(1))
         
-        system_prompt = "You are a Database Translator. Convert natural language to JSON filters..."
+        # 2. Try finding content inside plain ``` ... ```
+        match = re.search(r"```\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if match:
+            return json.loads(match.group(1))
+            
+        # 3. Fallback: Find the first outermost { ... }
+        match = re.search(r"(\{.*\})", text, re.DOTALL)
+        if match:
+            return json.loads(match.group(1))
+            
+    except Exception:
+        pass
+    return {}
+
+async def process_text_query(text: str):
+    
+    try:
+        # 🟢 1. STRICT SYSTEM PROMPT
+        # We explicitly tell the LLM the EXACT schema we need ("must": [{"key": "...", "match": "..."}])
+        system_prompt = """
+        You are a Database Translator. Convert the user's natural language query into a strict JSON filter for Qdrant.
+        
+        TARGET SCHEMA:
+        {
+            "must": [
+                { "key": "crop", "match": "lettuce" },
+                { "key": "stage", "match": "vegetative" }
+            ]
+        }
+        
+        RULES:
+        1. Output ONLY valid JSON. No conversational text.
+        2. Use the key "must" for the list of conditions.
+        3. Field names in payload are usually: "crop", "crop_id", "stage", "outcome".
+        4. If the user asks for everything, return { "must": [] }.
+        """
+
+        print(f"🗣️ User Query: {text}")
+        
         response = supervisor.model.invoke([
             SystemMessage(content=system_prompt),
             HumanMessage(content=text)
         ])
+
+        # 🟢 2. ROBUST PARSING
+        # Instead of simple replace(), we use the regex extractor
+        filter_logic = extract_json(response.content)
         
-        content = response.content.replace("```json", "").replace("```", "").strip()
-        filter_logic = json.loads(content)
-        
+        if not filter_logic:
+            print(f"⚠️ Failed to parse JSON from: {response.content}")
+            return {"status": "error", "message": "Could not understand query structure."}
+
+        print(f"⚙️ Parsed Logic: {filter_logic}")
+
+        # 🟢 3. CONSTRUCT QDRANT FILTER
         conditions = []
         for item in filter_logic.get("must", []):
             conditions.append(
@@ -268,6 +322,7 @@ async def process_text_query(text: str):
                 )
             )
 
+        # 🟢 4. EXECUTE SEARCH
         if conditions:
             scroll_filter = models.Filter(must=conditions)
             results = client.scroll(
@@ -277,17 +332,98 @@ async def process_text_query(text: str):
                 with_payload=True
             )
         else:
-            results = client.scroll(collection_name=COLLECTION_NAME, limit=10, with_payload=True)
+            # If no conditions, return the latest 10 items
+            results = client.scroll(
+                collection_name=COLLECTION_NAME, 
+                limit=10, 
+                with_payload=True
+            )
             
         points = results[0]
+        
         return {
             "status": "success",
             "results": [{"id": p.id, "payload": p.payload} for p in points]
         }
 
     except Exception as e:
-        print(f"Query Parse Error: {e}")
+        print(f"❌ Query Error: {e}")
         return {"status": "error", "message": str(e)}
 
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+    
 async def process_audio_search(file: UploadFile):
-    return {"status": "error", "message": "Audio search temporarily disabled."}
+    """
+    1. Transcribe Audio (Whisper-Large-V3) -> Text
+    2. Run Text Search (via existing process_text_query)
+    """
+    temp_filename = f"temp_audio_{file.filename}"
+    
+    # Save audio temporarily
+    try:
+        with open(temp_filename, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        print("🎙️ Transcribing audio (Multilingual)...")
+        
+        # Open file in binary read mode
+        with open(temp_filename, "rb") as audio_file:
+            transcription = groq_client.audio.transcriptions.create(
+                file=audio_file,
+                model="whisper-large-v3", # Multilingual model
+                response_format="json",
+                prompt="The audio may contain English or Hindi technical terms about farming."
+            )
+        
+        detected_text = transcription.text
+        print(f"📝 Heard: '{detected_text}'")
+        
+        # This ensures we get the same RAG/Qdrant logic as text queries
+        response_data = await process_text_query(detected_text)
+        
+        # Inject the transcription so the UI can show what was heard
+        response_data["transcription"] = detected_text
+
+        return response_data
+
+    except Exception as e:
+        print(f"❌ Audio Search Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+    finally:
+        # Cleanup temp file
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
+
+
+async def parse_natural_language_query(query_text: str):
+    """
+    Uses the Supervisor (LangChain) to convert text into Qdrant filters.
+    """
+    system_prompt = """
+    You are a Database Translator.
+    Your goal: Convert natural language queries (English, Hindi, Hinglish, etc.) into a JSON filter object for a Hydroponic Database.
+    
+    AVAILABLE FIELDS:
+    - crop (e.g., Lettuce, Basil, Tomato)
+    - stage (e.g., Seedling, Vegetative, Flowering)
+    - outcome (Values: "Positive", "Negative", "Neutral")
+    
+    RULES:
+    1. TRANSLATION: Map "Tamatar" -> "Tomato", "Kharab" -> "Negative", "Badhiya" -> "Positive".
+    2. OUTPUT SCHEMA: { "must": [ {"key": "field", "match": "value"} ] }
+    3. If no filters apply, return { "must": [] }.
+    """
+
+    try:
+        # instead of raw .chat.completions.create
+        response = supervisor.model.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=query_text)
+        ])
+        
+        return extract_json(response.content)
+
+    except Exception as e:
+        print(f"❌ Query Parse Error: {e}")
+        return {"must": []}

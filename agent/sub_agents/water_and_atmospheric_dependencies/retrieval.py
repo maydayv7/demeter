@@ -18,7 +18,7 @@ farm_memory = FarmMemory()
 # Initialize Qdrant for the Historian
 qdrant_client = QdrantClient(
     url=os.environ.get("QDRANT_URL", "http://localhost:6333"),
-    api_key=os.environ.get("QDRANT_API_KEY"),
+    api_key=os.environ.get("QDRANT_API_KEY1"),
 )
 
 doctor = VisionAgent()

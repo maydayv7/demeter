@@ -63,7 +63,6 @@ API_KEY = os.environ.get("GROQ_API_KEY")
 class SupervisorAgent:
     def __init__(self, researcher_agent=None):
         self.name = "Supervisor"
-        # Bandit is now just an 'Advisor', not an enforcer
         self.bandit = ContextualBandit(n_actions=NUM_ACTIONS, feature_dim=519)
         
         if API_KEY:
@@ -120,7 +119,6 @@ class SupervisorAgent:
             notes.extend(limits)
             
         # Tool 3: Physics Simulator
-        # (We reuse your existing prediction engine)
         sim_result = predict_outcome(plan, plan) # Comparing plan vs itself as a snapshot for now
         health = sim_result.get('predicted_health', 100)
         
@@ -188,8 +186,7 @@ class SupervisorAgent:
         
         result = self.app.invoke(initial_state)
         final_targets = result.get("merged_plan", {})
-        
-        # 🟢 NEW STEP: CONVERT TARGETS TO PHYSICAL ACTIONS
+
         current_sensors = fmu.metadata.get('sensor_data', {})
         
         print(f"[{self.name}] ⚙️ Converting Targets to Actuator Commands...")

@@ -3,11 +3,9 @@ import os
 import requests
 from pathlib import Path
 
-# --- PATH FIX ---
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent.parent 
 sys.path.append(str(project_root))
-# ----------------
 
 from qdrant_client import models
 from Sentinel.agent import FMUBuilder

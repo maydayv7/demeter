@@ -38,7 +38,6 @@ class AtmosphericAgent:
     def __init__(self):
         self.name = "Atmospheric Agent"
         
-        # 1. Initialize Model
         if not API_KEY:
             print(f"[{self.name}] ⚠️ No API Key found.")
             self.model = None
@@ -49,9 +48,7 @@ class AtmosphericAgent:
                 model="llama-3.3-70b-versatile",
                 temperature=0.2
             )
-            
-            # 2. 🟢 BIND TOOLS (The "Arms")
-            # We bind the general research tools AND the specific math tool (VPD)
+
             self.model_with_tools = llm.bind_tools([
                 ask_historian, 
                 ask_rag, 
@@ -60,35 +57,25 @@ class AtmosphericAgent:
                 diagnose_plant,
                 ask_memory
             ])
-        
-        # 3. Build the Graph (The "Brain")
+
         self.app = self._build_graph()
 
     def _build_graph(self):
         workflow = StateGraph(AgentState)
 
-        # --- A. ADD NODES ---
-        # 1. Decide: Uses the LLM with Tools bound to it
         workflow.add_node("decide", lambda state: decide_node(state, self.model_with_tools, ATMOS_PROMPT))
-        
-        # 2. Tools: Executes the function if the LLM calls one
+  
         workflow.add_node("tools", execute_tools_node)
-        
-        # 3. Simulate: Checks physics/safety
+
         workflow.add_node("simulate", simulate_node)
-        
-        # 4. Finalize: Formatting
+
         workflow.add_node("finalize", finalize_node)
 
-        # --- B. DEFINE FLOW ---
         workflow.set_entry_point("decide")
 
-        # Logic 1: Decide -> (Tools OR Simulate)
         def check_decision_output(state):
-            # If the LLM decided to call a tool, go to tool execution
             if state.get("next_step") == "tools":
                 return "tools"
-            # Otherwise, it wrote a plan, so go verify it
             return "simulate"
 
         workflow.add_conditional_edges(
@@ -97,10 +84,8 @@ class AtmosphericAgent:
             {"tools": "tools", "simulate": "simulate"}
         )
         
-        # Logic 2: Tools -> Back to Decide (ReAct Loop)
         workflow.add_edge("tools", "decide")
 
-        # Logic 3: Simulate -> (Finalize OR Retry)
         def check_simulation_result(state):
             if state["simulation_result"]["passed"]:
                 return "finalize"
