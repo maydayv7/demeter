@@ -70,7 +70,7 @@ class SupervisorAgent:
             self.model = ChatOpenAI(
                 base_url="https://api.groq.com/openai/v1", 
                 api_key=API_KEY,
-                model="qwen/qwen3-32b",
+                model="llama-3.3-70b-versatile",
                 temperature=0.0 # Zero temp for strict judging
             )
         
@@ -218,7 +218,8 @@ class SupervisorAgent:
         # (Same as before, but treated as advice now)
         sensors = fmu.metadata.get('sensor_data', {})
         fmu_vector = fmu.vector
-        vis_vec = np.array(fmu_vector) if isinstance(fmu_vector, list) else fmu_vector
+        vis_vec1 = np.array(fmu_vector) if isinstance(fmu_vector, list) else fmu_vector
+        vis_vec = vis_vec1[:512] if len(vis_vec1) >= 512 else None
         if vis_vec is None or len(vis_vec) == 0: vis_vec = np.zeros(516)
         
         s_vec = np.array([
@@ -227,6 +228,8 @@ class SupervisorAgent:
             float(sensors.get('temp', 25.0)) / 40.0
         ])
         context_vector = np.concatenate([vis_vec, s_vec])
+
+        print("Context Vector for Bandit:", context_vector.shape)
         
         action_idx, _ = self.bandit.select_action(context_vector)
         strategy_name = STRATEGIES[action_idx]

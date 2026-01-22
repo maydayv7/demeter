@@ -7,15 +7,53 @@ from qdrant_client import QdrantClient
 from agent.sub_agents.Researcher import ResearcherAgent
 from agent.Qdrant.Store import COLLECTION_NAME
 
+from agent.sub_agents.Doctor import VisionAgent
+from agent.memory import FarmMemory
+
 # Initialize shared clients
 # Note: We rely on the existing ResearcherAgent logic for embeddings/search
 researcher_instance = ResearcherAgent()
+farm_memory = FarmMemory()
 
 # Initialize Qdrant for the Historian
 qdrant_client = QdrantClient(
     url=os.environ.get("QDRANT_URL", "http://localhost:6333"),
     api_key=os.environ.get("QDRANT_API_KEY"),
 )
+
+doctor = VisionAgent()
+
+@tool
+def diagnose_plant(image_path: str):
+    """
+    Uses Computer Vision to scan the plant image for disease, pests, or growth issues.
+    Call this if you suspect the plant is sick or need to verify visual health.
+    
+    Args:
+        image_path (str): The absolute file path of the image (provided in your instructions/context).
+        
+    Returns:
+        JSON report containing 'health_assessment' and 'object_counts'.
+    """
+    if not image_path or image_path == "None":
+        return {"error": "No image path provided."}
+        
+    return doctor.analyze_frame(image_path)
+
+@tool
+def ask_memory(query: str):
+    """
+    Consult the Farm Memory for past events, strategies, and outcomes.
+    Useful for recalling what has been tried before and its results.
+    
+    Args:
+        query: A description of the situation to look up (e.g. "What strategies were used when humidity was high?")
+    """
+    try:
+        response = farm_memory.memory.query(query, top_k=3)
+        return response
+    except Exception as e:
+        return f"Memory unavailable: {str(e)}"
 
 @tool
 def ask_historian(query: str):
@@ -65,3 +103,5 @@ def ask_rag(query: str):
         return researcher_instance.search(query)
     except Exception as e:
         return f"Research unavailable: {str(e)}"
+    
+
