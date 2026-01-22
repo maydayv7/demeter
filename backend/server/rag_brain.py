@@ -5,19 +5,16 @@ import pypdf
 from qdrant_client import models
 from fastembed import TextEmbedding
 
-# --- PATH FIX: Add project root to system path ---
-# This ensures we can import your 'Qdrant.Client' connection
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../../'))
 sys.path.append(project_root)
-# -------------------------------------------------
 
-from Qdrant.Client import client  # Uses your existing Cloud connection
+from Qdrant.Client import client  
 
 # --- CONFIGURATION ---
 COLLECTION_NAME = "Knowledge_Base"
-VECTOR_SIZE = 384  # Standard size for 'bge-small-en-v1.5'
-DOCS_FOLDER = os.path.join(project_root, "Knowledge_Base") # <--- Folder Name
+VECTOR_SIZE = 384  
+DOCS_FOLDER = os.path.join(project_root, "Knowledge_Base") 
 
 def init_collection():
     """
@@ -65,7 +62,6 @@ def ingest_docs():
     init_collection()
     
     print("🧠 Loading Embedding Model (bge-small-en)...")
-    # This runs locally on your CPU (Fast & Free)
     model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
     
     # 2. Check if folder exists
@@ -112,7 +108,7 @@ def ingest_docs():
         points = []
         for i, (text_chunk, vector) in enumerate(zip(chunks, embeddings)):
             points.append(models.PointStruct(
-                id=str(uuid.uuid4()),  # Generate a random ID for this chunk
+                id=str(uuid.uuid4()),  
                 vector=vector.tolist(),
                 payload={
                     "text": text_chunk,
