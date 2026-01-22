@@ -16,7 +16,7 @@
 
 <div align="center">
 
-| ![System Overview](assets/images/screenshots/system_overview.png) | ![Agent Control](assets/images/screenshots/agent-control.png) | ![Console Log](assets/images/screenshots/console-log.png) |
+| ![System Overview](assets/images/screenshots/system_overview.png) | ![Agent Control](assets/images/screenshots/agent_control.png) | ![Console Log](assets/images/screenshots/console_log.png) |
 |:---:|:---:|:---:|
 | **System Overview**<br/>Real-time monitoring dashboard | **Agent Control**<br/>Multi-agent orchestration | **Console Log**<br/>AI agent decision logs |
 
@@ -31,7 +31,7 @@
 The system combines **Long-Term Memory**, **Computer Vision**, and **Reinforcement Learning** to optimize crop health in real-time, creating a truly autonomous farming experience.
 
 <div align="center">
-  <img src="assets/images/demeter-dashboard.png" alt="Demeter Dashboard" width="800"/>
+  <img src="assets/images/demeter_dashboard.png" alt="Demeter Dashboard" width="800"/>
   <p><em>Demeter Web Dashboard - Real-time monitoring and control interface</em></p>
 </div>
 
@@ -52,7 +52,7 @@ The system combines **Long-Term Memory**, **Computer Vision**, and **Reinforceme
 Demeter operates on a **Hierarchical Control Loop** powered by **LangGraph**, featuring specialized agents that collaborate to maintain optimal growing conditions:
 
 <div align="center">
-  <img src="assets/images/demeter-architecture.png" alt="Demeter System Architecture" width="800"/>
+  <img src="assets/images/Fetcher.png" alt="Demeter System Architecture" width="800"/>
   <p><em>Demeter Agent Hierarchy - Multi-agent cognitive architecture</em></p>
 </div>
 
@@ -91,11 +91,6 @@ Demeter operates on a **Hierarchical Control Loop** powered by **LangGraph**, fe
 - **Real-time Disease Detection**: Identifies pathogens before symptoms appear
 - **Growth Stage Analysis**: Monitors plant development and health indicators
 - **Automated Documentation**: Creates visual records of plant conditions
-
-<div align="center">
-  <img src="assets/images/disease-detection.png" alt="Disease Detection Interface" width="600"/>
-  <p><em>YOLOv8-powered disease detection identifying early signs of plant stress</em></p>
-</div>
 
 ### 🌐 Autonomous Intelligence
 - **Live Web Search**: Fetches current weather, market data, and research
