@@ -1,243 +1,237 @@
+import os
 import json
 import numpy as np
-import os
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage
+from langgraph.graph import StateGraph, END
+from agent.tools.actuation import convert_targets_to_actions
 
-# 1. Internal Engines
 from agent.Marl.bandit import ContextualBandit
 from agent.Marl.strategies import STRATEGIES, NUM_ACTIONS
-from agent.memory import FarmMemory
+from agent.Qdrant.Store import store_fmu
+from agent.sub_agents.water_and_atmospheric_dependencies.physics_engine import predict_outcome
 
-# 🟢 NEW: Import the Doctor
-from agent.sub_agents.Doctor import VisionAgent
+# --- NEW TOOLS DEFINITION ---
+def check_cross_domain_conflicts(atmos, water):
+    conflicts = []
+    
+    # 1. Thermal Shock Check
+    air_t = atmos.get('air_temp', 25)
+    water_t = water.get('water_temp', 20)
+    if abs(air_t - water_t) > 10:
+        conflicts.append(f"CRITICAL: Thermal Shock Risk. Air ({air_t}C) and Water ({water_t}C) delta > 10C.")
+
+    # 2. Transpiration vs Uptake Check
+    # High VPD (Dry) + High EC (Salty) = Burn Risk
+    rh = atmos.get('humidity', 60)
+    ec = water.get('ec', 1.0)
+    if rh < 50 and ec > 2.0:
+        conflicts.append(f"STRESS: Low Humidity ({rh}%) + High EC ({ec}) will cause Tip Burn.")
+
+    return conflicts
+
+def validate_hard_limits(plan):
+    violations = []
+    # Hard limits for Lettuce/General Hydroponics
+    if plan.get('ph', 6.0) < 5.0: violations.append("pH < 5.0 is toxic.")
+    if plan.get('ph', 6.0) > 7.5: violations.append("pH > 7.5 causes lockout.")
+    if plan.get('ec', 1.0) > 3.0: violations.append("EC > 3.0 is too high for lettuce.")
+    if plan.get('humidity', 60) > 85: violations.append("Humidity > 85% guarantees mold.")
+    
+    return violations
+
+# --- STATE DEFINITION ---
+from typing import TypedDict, Optional, Dict, Any, List
+
+class SupervisorState(TypedDict):
+    # Inputs
+    atmos_plan: Dict[str, Any]
+    water_plan: Dict[str, Any]
+    strategy_advice: str  # Kept as advice, not law
+    
+    # Processing
+    merged_plan: Dict[str, Any]
+    review_notes: List[str]
+    simulation_health: float
+    
+    # Output
+    final_decision: str # "APPROVE" or "REJECT"
+    critique: str       # Feedback for sub-agents if Rejected
+
+API_KEY = os.environ.get("GROQ_API_KEY")
 
 class SupervisorAgent:
-    def __init__(self, llm_client):
-        self.llm = llm_client
+    def __init__(self, researcher_agent=None):
+        self.name = "Supervisor"
+        # Bandit is now just an 'Advisor', not an enforcer
+        self.bandit = ContextualBandit(n_actions=NUM_ACTIONS, feature_dim=519)
         
-        # Initialize the Team
-        self.bandit = ContextualBandit(n_actions=NUM_ACTIONS, feature_dim=515)
-        self.bio_memory = FarmMemory()
+        if API_KEY:
+            self.model = ChatOpenAI(
+                base_url="https://api.groq.com/openai/v1", 
+                api_key=API_KEY,
+                model="llama-3.3-70b-versatile",
+                temperature=0.0 # Zero temp for strict judging
+            )
         
-        # 🟢 NEW: Initialize the Doctor (Eyes)
-        self.doctor = VisionAgent()
+        self.app = self._build_graph()
 
-        # Load saved bandit brain if it exists
-        self.model_path = os.path.join(os.path.dirname(__file__), '../Marl/saved_bandit_state.pkl')
-        # self.bandit.load(self.model_path)
+    def _build_graph(self):
+        workflow = StateGraph(SupervisorState)
 
-    def _report_to_vector(self, doctor_report):
+        # 1. Merge: Combine the two JSONs
+        workflow.add_node("merge", self.node_merge)
+        
+        # 2. Review: Run the 3 Tools (Conflicts, Limits, Physics)
+        workflow.add_node("review", self.node_review)
+        
+        # 3. Judge: LLM decides if the issues are fatal
+        workflow.add_node("judge", self.node_judge)
+
+        # Flow
+        workflow.set_entry_point("merge")
+        workflow.add_edge("merge", "review")
+        workflow.add_edge("review", "judge")
+        workflow.add_edge("judge", END)
+        
+        return workflow.compile()
+
+    # --- NODE FUNCTIONS ---
+
+    def node_merge(self, state):
+        print("   🔗 Supervisor Merging Plans...")
+        # Simple dictionary merge
+        merged = {**state['atmos_plan'], **state['water_plan']}
+        return {"merged_plan": merged}
+
+    def node_review(self, state):
+        print("   🔍 Supervisor Running Unit Tests...")
+        plan = state['merged_plan']
+        notes = []
+
+        # Tool 1: Conflict Check
+        conflicts = check_cross_domain_conflicts(state['atmos_plan'], state['water_plan'])
+        if conflicts:
+            notes.extend(conflicts)
+            
+        # Tool 2: Limit Check
+        limits = validate_hard_limits(plan)
+        if limits:
+            notes.extend(limits)
+            
+        # Tool 3: Physics Simulator
+        # (We reuse your existing prediction engine)
+        sim_result = predict_outcome(plan, plan) # Comparing plan vs itself as a snapshot for now
+        health = sim_result.get('predicted_health', 100)
+        
+        if health < 90:
+            notes.append(f"SIMULATION FAIL: Predicted health drops to {health}%. Risk: {sim_result.get('risk_warning')}")
+
+        return {"review_notes": notes, "simulation_health": health}
+
+    def node_judge(self, state):
         """
-        🟢 NEW: Converts the Doctor's JSON report into the 512-dim vector.
-        Uses semantic hashing to map specific diseases to specific neurons.
+        The LLM looks at the automated test results and makes the final call.
         """
-        vis_vec = np.zeros(512)
+        print("   ⚖️ Supervisor Judging...")
         
-        if "detailed_detections" in doctor_report:
-            for detection in doctor_report["detailed_detections"]:
-                label = detection["object"]
-                confidence = detection["confidence"]
-                
-                # Hash the label name to an index between 0-511
-                idx = hash(label) % 512
-                vis_vec[idx] += confidence
-                
-        return np.clip(vis_vec, 0, 1.0)
-
-    def _build_context(self, visual_vector, sensors):
-        """
-        🟢 UPDATED: Fuses Vision (512) + 3 
-        """
-        # Raw Sensor Values
-        ph = sensors.get('pH', 6.0)
-        ec = sensors.get('EC', 1.0)
-        temp = sensors.get('temp', 25.0)
-
-        # 1. Normalize Raw (Direction)
-        raw_ph = (ph - 6.0) / 2.0
-        raw_ec = (ec - 1.0) / 3.0
-        raw_temp = (temp - 25.0) / 40.0
-
-        sensor_features = np.array([
-            raw_ph, raw_ec, raw_temp,
-        ])
+        if not state['review_notes']:
+            # No issues found by tools
+            return {"final_decision": "APPROVE", "critique": "Plan looks solid."}
         
-        return np.concatenate([visual_vector, sensor_features])
-
-    def _get_strategy_instruction(self, strategy_name):
-        """Translates Math Strategy -> Natural Language Orders"""
-        instructions = {
-            "MAINTAIN_CURRENT": "Do NOT recommend changes. System is stable.",
-            "CALIBRATE_SENSORS": "Sensor readings are anomalous. Recommend hardware calibration.",
-            "AGGRESSIVE_PH_DOWN": "Priority: LOWER pH rapidly. Recommend strong acid buffers.",
-            "AGGRESSIVE_PH_UP": "Priority: RAISE pH rapidly. Recommend strong base buffers.",
-            "GENTLE_PH_BALANCING": "pH is drifting. Recommend gentle adjustments only.",
-            "INCREASE_EC_VEG": "Plant needs NITROGEN for vegetative growth.",
-            "INCREASE_EC_BLOOM": "Plant needs PHOSPHORUS/POTASSIUM for flowering.",
-            "LOWER_EC_FLUSH": "Nutrient burn detected. Recommend flushing reservoir.",
-            "CALMAG_BOOST": "Calcium/Magnesium deficiency detected. Recommend CalMag supplement.",
-            "RAISE_TEMP_HUMIDITY": "Environment too cold/dry. Recommend heating/humidifying.",
-            "LOWER_TEMP_HUMIDITY": "Mold risk high. Recommend fans and dehumidifiers.",
-            "MAX_AIR_CIRCULATION": "Stagnant air. Recommend max fan speed.",
-            "FUNGAL_TREATMENT": "Fungal risk. Recommend fungicide and lower humidity.",
-            "PEST_ISOLATION": "Pests detected. Recommend isolation and organic pesticide.",
-            "PRUNE_NECROTIC_LEAVES": "Necrosis detected. Recommend pruning dead matter."
-        }
-        return instructions.get(strategy_name, "Follow standard procedures.")
-
-    def reason(self, current_fmu, similar_fmus, sub_agent_outputs):
-        """
-        The Core Logic: Synthesizes Bandit (Math), Specialists (Science), 
-        Qdrant (History), mem0 (Biography), AND Doctor (Vision).
-        """
-        payload = current_fmu['payload']
-        sensors = payload['sensors']
+        # If issues exist, ask LLM if they are fatal or acceptable trade-offs
+        prompt = f"""
+        You are the Quality Assurance Supervisor.
         
-        # 🟢 NEW: Extract Image Path
-        image_path = payload.get('image_path', None)
-        crop_id = payload.get('crop_id', 'General_Zone_1')
-
-        # ---------------------------------------------------------
-        # 0. 🟢 THE DOCTOR (Vision Analysis)
-        # ---------------------------------------------------------
-        visual_report = {"scan_summary": "No Image Provided", "detailed_detections": []}
+        PROPOSED PLAN: {state['merged_plan']}
         
-        if image_path and os.path.exists(image_path):
-            print(f"👀 Doctor Analyzing: {image_path}")
-            visual_report = self.doctor.analyze_frame(image_path)
-            print(f"📋 Visual Report: {visual_report.get('scan_summary')}")
+        AUTOMATED TEST FAILURES:
+        {json.dumps(state['review_notes'], indent=2)}
         
-        # Convert report to vector for the Bandit
-        visual_vector = self._report_to_vector(visual_report)
-
-        # ---------------------------------------------------------
-        # 1. 🟢 THE GENERAL (Bandit RL)
-        # ---------------------------------------------------------
-        # Build 515-dim context (Vision + Advanced Sensors)
-        context_vector = self._build_context(visual_vector, sensors)
+        ADVISORY STRATEGY: {state['strategy_advice']}
         
-        action_idx, debug_info = self.bandit.select_action(context_vector)
-        strategic_intent = STRATEGIES[action_idx]
-        specific_order = self._get_strategy_instruction(strategic_intent)
+        TASK:
+        1. If the failures are dangerous (Toxic pH, Thermal Shock, Low Health), REJECT the plan.
+        2. If the failures are minor or necessary for the Strategy (e.g., Low Humidity required for 'Fungal Treatment'), APPROVE it.
         
-        print(f"🎰 Bandit Order: {strategic_intent} (Score: {debug_info['scores'][action_idx]:.2f})")
-
-        # ---------------------------------------------------------
-        # 2. 🟢 THE EXPERTS (Mini-Agents)
-        # ---------------------------------------------------------
-        if "NUTRIENT" in strategic_intent or "PH" in strategic_intent or "EC" in strategic_intent:
-            highlighted_report = sub_agent_outputs.get("nutrient_report", "No Report")
-            focus_area = "NUTRIENT SPECIALIST"
-        elif "TEMP" in strategic_intent or "HUMIDITY" in strategic_intent:
-            highlighted_report = sub_agent_outputs.get("atmosphere_report", "No Report")
-            focus_area = "ATMOSPHERE SPECIALIST"
-        elif "PEST" in strategic_intent or "FUNGAL" in strategic_intent or "PRUNE" in strategic_intent:
-            # 🟢 UPDATED: Use the Doctor's report for bio-threats
-            highlighted_report = f"Visual Diagnosis: {visual_report.get('scan_summary', 'None')}"
-            focus_area = "PLANT DOCTOR"
-        else:
-            highlighted_report = "Standard operational check."
-            focus_area = "ALL SECTORS"
-
-        # ---------------------------------------------------------
-        # 3. 🟢 THE HISTORIAN (Qdrant / RAG)
-        # ---------------------------------------------------------
-        history_context = "No relevant global precedents found."
-        if similar_fmus and len(similar_fmus) > 0:
-            history_lines = []
-            for i, fmu in enumerate(similar_fmus):
-                past_action = fmu['payload'].get('action_taken', 'Unknown')
-                past_outcome = fmu['payload'].get('outcome', 'Unknown')
-                score = fmu.get('score', 0.0)
-                history_lines.append(f"- Global Case #{i+1} ({score:.0%} Match): Action '{past_action}' -> Result '{past_outcome}'")
-            history_context = "\n".join(history_lines)
-
-        # ---------------------------------------------------------
-        # 4. 🟢 THE BIOGRAPHER (mem0 / Entity Memory)
-        # ---------------------------------------------------------
-        plant_biography = self.bio_memory.get_plant_history(crop_id)
-
-        # ---------------------------------------------------------
-        # 5. 🟢 THE COMMANDER (Supervisor LLM)
-        # ---------------------------------------------------------
-        system_prompt = f"""
-        You are the Supervisor of a Hydroponic Farm.
-        
-        --- 🚨 INPUTS FROM YOUR TEAM 🚨 ---
-
-        [1] INTELLIGENCE REPORT (From {focus_area}):
-            "{highlighted_report}"
-            *Use these facts to justify the decision.*
-
-        [2] VISUAL DIAGNOSIS (From The Doctor):
-            Summary: {json.dumps(visual_report.get('scan_summary'))}
-            Detections: {json.dumps(visual_report.get('detailed_detections'))}
-
-        [3] LIVE SENSORS: 
-            {json.dumps(sensors)}
-
-        [4] GLOBAL PRECEDENT (Similar Past Situations):
-            {history_context}
-
-        [5] FULL CONTEXT:
-            All Specialist Reports: {json.dumps(sub_agent_outputs)}
-
-        [6] PATIENT BIOGRAPHY (Specific to {crop_id}):
-            {plant_biography}
-            *CRITICAL: If this specific plant has a history of sensitivity, adjust the plan.*
-        
-        [7] STRATEGIC ORDER (From RL): 
-            "{strategic_intent}" -> "{specific_order}"
-            *This is your just one metric*
-
-        --- 🚨 HIERARCHY OF TRUTH (CRITICAL) 🚨 ---
-        1. **LIVE SENSORS**: Absolute truth.
-        2. **VISUAL EVIDENCE**: Strong truth (The Doctor sees the plant and checks for sickness).
-        3. **BIOGRAPHY**: History (Past truth).
-
-        --- YOUR TASK ---
-        Generate a detailed action plan. Synthesize all the inputs.
-
-        --- ✍️ STYLE GUIDELINES ---
-        - **Plain English Only.**
-        - **Tone:** Professional, decisive, and clear.
-        
-        RESPONSE FORMAT (JSON):
-        {{
-            "decision": "Brief, actionable summary",
-            "reasoning": "Detailed explanation synthesizing Strategy + Visuals + History...",
-            "visual_alert": true/false,
-            "risk_matrix": {{ "nutrients": 0-10, "climate": 0-10, "visuals": 0-10, "history": 0-10 }}
-        }}
+        OUTPUT JSON: {{ "verdict": "APPROVE" or "REJECT", "critique": "Explanation..." }}
         """
         
         try:
-            response = self.llm.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Current Sensors: {json.dumps(sensors)}"}
-                ],
-                response_format={"type": "json_object"}
-            )
-            decision_json = json.loads(response.choices[0].message.content)
+            response = self.model.invoke([HumanMessage(content=prompt)])
+            content = response.content.replace("```json", "").replace("```", "").strip()
+            result = json.loads(content)
             
-            # ---------------------------------------------------------
-            # 6. 🟢 CLOSE THE LOOP (Log to mem0)
-            # ---------------------------------------------------------
-            log_entry = f"Condition: {strategic_intent}. Visuals: {visual_report.get('scan_summary')}. Action: {decision_json['decision']}."
-            self.bio_memory.log_event(crop_id, log_entry)
-
-            # Attach Metadata for RL Training later
-            decision_json["strategic_intent"] = strategic_intent
-            decision_json["bandit_action_idx"] = int(action_idx)
-            decision_json["visual_report"] = visual_report
-            
-            return decision_json
-
-        except Exception as e:
             return {
-                "decision": f"Execute Standard Protocol: {strategic_intent}",
-                "reasoning": f"LLM Generation Failed ({str(e)}). Defaulting to Bandit Strategy.",
-                "strategic_intent": strategic_intent,
-                "bandit_action_idx": int(action_idx)
+                "final_decision": result.get("verdict", "REJECT"),
+                "critique": result.get("critique", "Automated tests failed.")
             }
+        except:
+            # Default to reject if unsafe
+            return {"final_decision": "REJECT", "critique": "Plan failed automated safety checks."}
+
+    # --- ENTRY POINT ---
+
+    def synthesize_plan(self, atmos_plan, water_plan, fmu, history, strategy_info):
+        strategy_name, _, action_idx = strategy_info
+        
+        initial_state = {
+            "atmos_plan": atmos_plan,
+            "water_plan": water_plan,
+            "strategy_advice": strategy_name,
+            "merged_plan": {},
+            "review_notes": [],
+            "simulation_health": 0.0,
+            "final_decision": "",
+            "critique": ""
+        }
+        
+        result = self.app.invoke(initial_state)
+        final_targets = result.get("merged_plan", {})
+        
+        # 🟢 NEW STEP: CONVERT TARGETS TO PHYSICAL ACTIONS
+        current_sensors = fmu.metadata.get('sensor_data', {})
+        
+        print(f"[{self.name}] ⚙️ Converting Targets to Actuator Commands...")
+        
+        # Calculate physical actions
+        physical_action_obj = convert_targets_to_actions(current_sensors, final_targets)
+        
+        # Convert Pydantic model to Dict for JSON serialization
+        final_payload = physical_action_obj.dict()
+        
+        # Log it
+        print(f"[{self.name}] 🚜 Activating Hardware: {final_payload}")
+        
+        # Store in FMU
+        fmu.metadata["action_taken"] = str(final_payload)
+        fmu.metadata["bandit_action_id"] = action_idx
+        fmu.metadata["strategic_intent"] = strategy_name
+        
+        if "image_b64" in fmu.metadata: del fmu.metadata["image_b64"]
+        store_fmu(fmu)
+        
+        return final_payload
+
+    # --- ADVISORY ONLY (Not Enforced) ---
+    def get_strategic_goal(self, fmu):
+        # (Same as before, but treated as advice now)
+        sensors = fmu.metadata.get('sensor_data', {})
+        fmu_vector = fmu.vector
+        vis_vec1 = np.array(fmu_vector) if isinstance(fmu_vector, list) else fmu_vector
+        vis_vec = vis_vec1[:512] if len(vis_vec1) >= 512 else None
+        if vis_vec is None or len(vis_vec) == 0: vis_vec = np.zeros(516)
+        
+        s_vec = np.array([
+            (float(sensors.get('pH', 6.0)) - 6.0) / 2.0, 
+            float(sensors.get('EC', 1.0)) / 3.0,
+            float(sensors.get('temp', 25.0)) / 40.0
+        ])
+        context_vector = np.concatenate([vis_vec, s_vec])
+
+        print("Context Vector for Bandit:", context_vector.shape)
+        
+        action_idx, _ = self.bandit.select_action(context_vector)
+        strategy_name = STRATEGIES[action_idx]
+        
+        return strategy_name, "Advisory Only", int(action_idx)
