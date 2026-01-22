@@ -1,6 +1,6 @@
 # Demeter: Autonomous Hydroponic Intelligence 🌿🤖
 
-<a href="https://github.com/your-username/demeter](https://drive.google.com/file/d/1VAN31mXPaQ7r4Fm8dpzjhgGeeQwvlH-Z/view?usp=drive_link">
+<a href="https://drive.google.com/file/d/1VAN31mXPaQ7r4Fm8dpzjhgGeeQwvlH-Z/view?usp=drive_link">
   <img src="https://img.shields.io/badge/Demeter-Hydroponic_AI-4CAF50?style=for-the-badge&logo=robot&logoColor=white" alt="Demeter Logo">
 </a>
 <div align="center">
