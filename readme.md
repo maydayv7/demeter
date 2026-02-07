@@ -1,8 +1,10 @@
 # Demeter: Autonomous Hydroponic Intelligence 🌿🤖
 
+<a href="https://drive.google.com/file/d/1VAN31mXPaQ7r4Fm8dpzjhgGeeQwvlH-Z/view?usp=drive_link">
+  <img src="https://img.shields.io/badge/Demeter-Hydroponic_AI-4CAF50?style=for-the-badge&logo=robot&logoColor=white" alt="Demeter Logo">
+</a>
 <div align="center">
 
-![Demeter Logo](https://img.shields.io/badge/Demeter-Hydroponic_AI-4CAF50?style=for-the-badge&logo=robot&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)
 ![React](https://img.shields.io/badge/React-19+-61DAFB?style=flat-square&logo=react)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi)
@@ -10,7 +12,7 @@
 
 **Industrial-grade Multi-Agent System for autonomous hydroponic farming through AI-driven reasoning**
 
-[📖 Documentation](#-documentation) • [🚀 Quick Start](#-quick-start) • [🔧 API Reference](#-api-reference) • [🤝 Contributing](#-contributing)
+[📖 Documentation](https://drive.google.com/file/d/1VAN31mXPaQ7r4Fm8dpzjhgGeeQwvlH-Z/view?usp=drive_link) • [🚀 Quick Start](#-quick-start) • [🔧 API Reference](#-api-reference) • [🤝 Contributing](#-contributing)
 
 </div>
 
