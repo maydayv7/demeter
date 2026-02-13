@@ -2,6 +2,7 @@ import os
 import shutil
 import json
 import traceback
+import base64
 from fastapi import UploadFile
 from groq import Groq
 from qdrant_client.http import models
@@ -109,50 +110,52 @@ async def process_ingest(file: UploadFile, sensors_str: str, metadata_str: str, 
 
 async def process_search(file: UploadFile, sensors_str: str, builder):
     """
-    RUNS THE DEMETER AGENT LOOP (Standard Mode - No Bandit)
+    SIMPLIFIED AGENT LOOP: Atmos + Water + Supervisor ONLY.
+    Updated for Web: Base64 Images + Metadata Consistency.
     """
     temp_filename = f"temp_search_{file.filename}"
-    with open(temp_filename, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
+    
     try:
-        raw_sensor_data = json.loads(sensors_str)
-        abs_image_path = os.path.abspath(temp_filename)
+        # --- 1. SETUP: File & Base64 ---
+        file_content = await file.read()
         
+        # Save to disk (Required for FMU Builder)
+        with open(temp_filename, "wb") as buffer:
+            buffer.write(file_content)
+            
+        # Encode to Base64 (Required for Agents)
+        image_b64 = base64.b64encode(file_content).decode("utf-8")
+        abs_image_path = os.path.abspath(temp_filename)
+
+        # --- 2. DATA: Parse Sensors ---
+        raw_sensor_data = json.loads(sensors_str)
         clean_sensors = filter_numeric_sensors(raw_sensor_data)
         
-        # --- 1. Create Query FMU ---
         target_crop = raw_sensor_data.get("crop", "Unknown")
         target_crop_id = raw_sensor_data.get("crop_id", f"Batch_{target_crop}_{datetime.now().strftime('%Y%m')}")
         seq_num = get_next_sequence_number(target_crop_id)
         
+        # Metadata construction (Using "sensors" key as requested)
         metadata = {
             "crop": target_crop, 
             "stage": raw_sensor_data.get("stage", "Unknown"),
             "crop_id": target_crop_id,
             "sequence_number": seq_num,
-            "sensor_data": clean_sensors,
+            "sensors": clean_sensors, # <--- Correct key for web
             "action_taken": "PENDING_DECISION", 
             "outcome": "PENDING"
         }
 
+        # Create and Store FMU (Snapshot of current state)
         query_fmu = builder.create_fmu(abs_image_path, clean_sensors, metadata=metadata)
         store_fmu(query_fmu)
         print(f"📝 Processing FMU ID: {query_fmu.id}")
 
-        # --- 2. JUDGE (Review Previous) ---
-        # We run the Judge to update the Database with the 'Outcome' of the last cycle.
-        # But we do NOT use the result for training the Bandit.
-        try:
-            judge.review_previous_cycle(query_fmu)
-        except Exception as e:
-            print(f"⚠️ Judge Error (Non-Critical): {e}")
-
-        # --- 3. STRATEGY (STATIC) ---
+        # --- 3. CONTEXT (Minimal) ---
+        # Static strategy for web simplicity
+        strat_instr = "Maintain optimal crop-specific parameters."
         strat_name = "STANDARD_MAINTENANCE"
-        strat_instr = "Maintain optimal crop-specific parameters. Ensure homeostasis."
-        action_idx = 0 # Dummy ID
-        print(f"🛡️ Strategy Selected: {strat_name} (Manual Override)")
+        action_idx = 0 
 
         # --- 4. RESEARCH ---
         hits = client.query_points(
@@ -164,52 +167,51 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
         
         points_list = hits.points if hasattr(hits, 'points') else hits
 
-        # 2. Generate Context (Safe handling for missing payloads)
-        history_context = "\n".join([
-            f"- {(h.payload or {}).get('action_taken', 'Unknown')}: {(h.payload or {}).get('outcome', 'Unknown')}" 
-            for h in points_list
-        ])
-
         research_query = f"optimal hydroponic conditions for {target_crop} in {metadata['stage']} stage"
         research_context = researcher.search(research_query)
 
-        # --- 5. SUB-AGENTS ---
+        # --- 4. SUB-AGENTS (Atmos & Water) ---
         print("🧠 Specialists Planning...")
         
+        # Pass empty strings for research/history, pass image_b64 for visuals
         atmos_plan = atmos_agent.reason(
             sensors=clean_sensors, 
             research=research_context, 
             strategy=strat_instr, 
-            history=history_context
+            history="No history provided.", 
+            image_b64=image_b64 
         )
         
         water_plan = water_agent.reason(
             sensors=clean_sensors, 
             research=research_context, 
             strategy=strat_instr, 
-            history=history_context
+            history="No history provided.", 
+            image_b64=image_b64
         )
 
-        # --- 6. SUPERVISOR ---
+        print(f"🌬️ Atmospheric Plan:\n{atmos_plan}")
+        print(f"💧 Water Plan:\n{water_plan}")
+
+        # --- 5. SUPERVISOR (Synthesis) ---
         print("👮 Supervisor Finalizing...")
         
         final_decision_json = supervisor.synthesize_plan(
             atmos_plan, 
             water_plan, 
             query_fmu, 
-            history_context,
+            "No history context.", 
             strategy_info=(strat_name, strat_instr, action_idx)
         )
 
-        # --- 7. EXPLAINER ---
+        sub_agent_reports = {"Atmospheric": atmos_plan, "Water": water_plan}
+
         current_fmu_context = {
             "metadata": metadata,
             "payload": {"sensors": clean_sensors},
             "vector": query_fmu.vector.tolist() if hasattr(query_fmu.vector, 'tolist') else query_fmu.vector
         }
         similar_fmus_formatted = [{"score": h.score, "payload": h.payload} for h in points_list]
-        sub_agent_reports = {"Atmospheric": atmos_plan, "Water": water_plan}
-
         explanation_log = explainer.explain(
             current_fmu=current_fmu_context,
             similar_fmus=similar_fmus_formatted,
@@ -217,14 +219,14 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
             final_decision=final_decision_json
         )
 
-        # Update Record
+        # --- 6. DB UPDATE ---
+        # Record the decision
         client.set_payload(
             collection_name=COLLECTION_NAME,
             points=[query_fmu.id],
             payload={
                 "action_taken": str(final_decision_json),
                 "outcome": "PENDING_OBSERVATION",
-                "explanation_log": explanation_log,
                 "strategic_intent": strat_name
             }
         )
@@ -232,10 +234,9 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
         return {
             "status": "success",
             "new_fmu_id": query_fmu.id,
-            "strategy": strat_name,
             "agent_decision": final_decision_json,
             "explanation": explanation_log,
-            "search_results": [{"id": h.id, "score": h.score, "payload": h.payload} for h in points_list]
+            "search_results": [{"id": p.id, "payload": p.payload} for p in points_list]
         }
 
     except Exception as e:
@@ -244,13 +245,16 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
         return {"status": "error", "message": str(e)}
 
     finally:
+        # Cleanup temp file
         if os.path.exists(temp_filename):
-            os.remove(temp_filename)
+            try:
+                os.remove(temp_filename)
+            except Exception:
+                pass
 
 def extract_json(text):
     """
-    Robustly extracts the first valid JSON object from a text string,
-    ignoring conversational fluff or markdown blocks.
+    Robustly extracts the first valid JSON object from a text string.
     """
     try:
         # 1. Try finding content inside ```json ... ```
@@ -276,7 +280,6 @@ async def process_text_query(text: str):
     
     try:
         # 🟢 1. STRICT SYSTEM PROMPT
-        # We explicitly tell the LLM the EXACT schema we need ("must": [{"key": "...", "match": "..."}])
         system_prompt = """
         You are a Database Translator. Convert the user's natural language query into a strict JSON filter for Qdrant.
         
@@ -303,7 +306,6 @@ async def process_text_query(text: str):
         ])
 
         # 🟢 2. ROBUST PARSING
-        # Instead of simple replace(), we use the regex extractor
         filter_logic = extract_json(response.content)
         
         if not filter_logic:

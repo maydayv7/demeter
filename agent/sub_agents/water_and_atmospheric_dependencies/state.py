@@ -7,6 +7,8 @@ class AgentState(TypedDict):
     strategy: str
     research_context: str
     history: str
+
+    image_b64: Optional[str]
     
     # Internal Processing
     draft_plan: Optional[Dict[str, Any]]

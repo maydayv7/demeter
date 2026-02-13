@@ -6,7 +6,7 @@ load_dotenv()
 
 # --- GROQ CONFIGURATION ---
 # Common Groq Models: "llama3-70b-8192", "mixtral-8x7b-32768"
-MODEL_ID = "llama-3.1-8b-instant"
+MODEL_ID = "qwen/qwen3-32b"
 API_KEY = os.environ.get("GROQ_API_KEY")
 
 class BaseReasoningAgent:

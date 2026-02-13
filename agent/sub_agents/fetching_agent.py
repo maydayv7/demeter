@@ -63,7 +63,7 @@ class FetchingAgent:
                 # 5. Historian Search (Optional context for Researcher)
                 search_results = self.find_similar_instances(fmu)
                 
-                return fmu, sensor_snapshot, search_results
+                return fmu, sensor_snapshot, search_results, image_b64
             else:
                 print(f"[Fetcher] ❌ Error: Simulator returned {response.status_code}")
                 return None, None, None

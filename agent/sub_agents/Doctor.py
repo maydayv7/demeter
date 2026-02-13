@@ -4,6 +4,9 @@ import json
 import os
 import logging
 import numpy as np
+import base64
+from io import BytesIO
+from PIL import Image
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
@@ -40,19 +43,28 @@ class VisionAgent:
             logger.error(f"❌ Critical Error loading model: {e}")
             self.model = None
 
-    def analyze_frame(self, image_path):
+    def analyze_frame(self, image_b64):
         """
-        Scans an image for pests, diseases, or growth stages.
+        Scans a base64 encoded image for pests, diseases, or growth stages.
         """
         if not self.model:
             return {"error": "Model not initialized"}
             
-        if not os.path.exists(image_path):
-            return {"error": f"Image file not found: {image_path}"}
+        if not image_b64:
+            return {"error": "No image data provided"}
 
         try:
-            # 3. Run Inference
-            results = self.model.predict(image_path, conf=0.25, save=False, verbose=False)
+            # 3. Decode Base64 to Image
+            # Handle data URI scheme if present (e.g., "data:image/png;base64,...")
+            if "," in image_b64:
+                image_b64 = image_b64.split(",")[1]
+            
+            image_data = base64.b64decode(image_b64)
+            image = Image.open(BytesIO(image_data))
+
+            # 4. Run Inference
+            # YOLO can accept PIL Images directly
+            results = self.model.predict(image, conf=0.25, save=False, verbose=False)
             result = results[0]
             
             detections = []
@@ -70,7 +82,7 @@ class VisionAgent:
                 })
                 summary_counts[label] = summary_counts.get(label, 0) + 1
 
-            # 4. Health Logic
+            # 5. Health Logic
             health_status = "HEALTHY"
             visual_alert = False
             
@@ -101,5 +113,6 @@ class VisionAgent:
             }
             
         except Exception as e:
+           
             logger.error(f"Error during analysis: {e}")
             return {"error": str(e)}

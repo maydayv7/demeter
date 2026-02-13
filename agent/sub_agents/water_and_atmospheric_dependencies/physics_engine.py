@@ -5,7 +5,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 # Configuration
 API_KEY = os.environ.get("GROQ_API_KEY1")
-MODEL_ID = "llama-3.1-8b-instant" # Using the latest supported Groq model
+MODEL_ID = "qwen/qwen3-32b" # Using the latest supported Groq model
 
 def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
     """
@@ -60,4 +60,4 @@ def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
 
     except Exception as e:
         print(f"   ⚠️ Physics Engine Error: {e}")
-        return {"predicted_health": 50.0, "risk_warning": "Simulation Connection Failed"}
+        return {"predicted_health": 70.0, "risk_warning": "Simulation Connection Failed"}
