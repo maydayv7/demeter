@@ -22,10 +22,14 @@ def convert_targets_to_actions(current_state: Dict[str, float], target_state: Di
     Calculates the exact dosages/fan speeds needed to hit the targets.
     """
     action = FarmAction()
+
+    print(f"Current State: {current_state}")
+    print(f"Target State: {target_state}")
     
     # 1. pH CONTROL (Acid/Base)
-    current_ph = current_state.get('ph', 6.0)
-    target_ph = target_state.get('ph', 6.0)
+    current_ph = next((v for k, v in current_state.items() if k.lower() == 'ph'), 6.0)
+    # target_ph = target_state.get('ph', 6.0) <-- OLD
+    target_ph = next((v for k, v in target_state.items() if k.lower() == 'ph'), 6.0)
     ph_error = target_ph - current_ph
     
     # Deadband: Don't dose if within 0.1
@@ -42,8 +46,8 @@ def convert_targets_to_actions(current_state: Dict[str, float], target_state: Di
             action.base_dosage_ml = round(dose, 2)
 
     # 2. EC CONTROL (Nutrients/Water)
-    current_ec = current_state.get('ec', 1.5)
-    target_ec = target_state.get('ec', 1.5)
+    current_ec = next((v for k, v in current_state.items() if k.lower() == 'ec'), 6.0)
+    target_ec = next((v for k, v in target_state.items() if k.lower() == 'ec'), 6.0)
     ec_error = target_ec - current_ec
     
     if abs(ec_error) > 0.1:

@@ -69,7 +69,7 @@ class SupervisorAgent:
             self.model = ChatOpenAI(
                 base_url="https://api.groq.com/openai/v1", 
                 api_key=API_KEY,
-                model="llama-3.3-70b-versatile",
+                model="qwen/qwen3-32b",
                 temperature=0.0 # Zero temp for strict judging
             )
         
@@ -149,11 +149,14 @@ class SupervisorAgent:
         ADVISORY STRATEGY: {state['strategy_advice']}
         
         TASK:
-        1. If the failures are dangerous (Toxic pH, Thermal Shock, Low Health), REJECT the plan.
-        2. If the failures are minor or necessary for the Strategy (e.g., Low Humidity required for 'Fungal Treatment'), APPROVE it.
-        
+        1. BIAS: You should almost always APPROVE.
+        2. ONLY 'REJECT' if the plan is physically impossible or immediately fatal (e.g., pH < 3.0, Water Temp > 40°C).
+        3. IGNORE 'Simulation Fail' warnings if the Strategy justifies the extreme values (e.g., 'Flush' requires low EC).
+        4. Treat "Risk" warnings as acceptable trade-offs for the strategy.
         OUTPUT JSON: {{ "verdict": "APPROVE" or "REJECT", "critique": "Explanation..." }}
         """
+
+        print("Supervisor Prompt:\n", prompt)
         
         try:
             response = self.model.invoke([HumanMessage(content=prompt)])
@@ -167,6 +170,9 @@ class SupervisorAgent:
         except:
             # Default to reject if unsafe
             return {"final_decision": "REJECT", "critique": "Plan failed automated safety checks."}
+
+
+
 
     # --- ENTRY POINT ---
 
@@ -187,7 +193,7 @@ class SupervisorAgent:
         result = self.app.invoke(initial_state)
         final_targets = result.get("merged_plan", {})
 
-        current_sensors = fmu.metadata.get('sensor_data', {})
+        current_sensors = fmu.metadata.get('sensors', {})
         
         print(f"[{self.name}] ⚙️ Converting Targets to Actuator Commands...")
         

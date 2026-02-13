@@ -13,7 +13,7 @@ from agent.sub_agents.water_and_atmospheric_dependencies.tools import calculate_
 # Configuration
 API_KEY = os.environ.get("GROQ_API_KEY")
 
-MODEL_ID = "llama-3.3-70b-versatile"
+MODEL_ID = "qwen/qwen3-32b"
 
 ATMOS_PROMPT = """
 You are the Atmospheric Specialist for a Hydroponic Farm.
@@ -45,17 +45,18 @@ class AtmosphericAgent:
             llm = ChatOpenAI(
                 base_url="https://api.groq.com/openai/v1", 
                 api_key=API_KEY,
-                model="llama-3.3-70b-versatile",
-                temperature=0.2
+                model="qwen/qwen3-32b",
+                temperature=0.2,
+                model_kwargs={"tool_choice": "auto", "parallel_tool_calls": False}
             )
 
             self.model_with_tools = llm.bind_tools([
-                ask_historian, 
+              #  ask_historian, 
                 ask_rag, 
                 web_search,
                 calculate_vpd,
                 diagnose_plant,
-                ask_memory
+             #   ask_memory
             ])
 
         self.app = self._build_graph()
@@ -103,18 +104,22 @@ class AtmosphericAgent:
         )
         
         workflow.add_edge("finalize", END)
-        return workflow.compile()
+        final_plan = workflow.compile()
+        print("final_plan(Atmos): ", final_plan)
+        return final_plan
 
-    def reason(self, sensors, research, strategy, history="None"):
+    def reason(self, sensors, research, strategy, history="None", image_b64=None):
         """Entry point called by main_agent.py"""
+        
         initial_state = {
             "sensors": sensors,
             "research_context": research,
             "strategy": strategy,
             "history": history,
+            "image_b64": image_b64, # 🟢 Stored in state, waiting to be injected
             "retry_count": 0,
             "critique": None,
-            "messages": [] # Stores conversation history for ReAct
+            "messages": [] 
         }
         
         result = self.app.invoke(initial_state)
