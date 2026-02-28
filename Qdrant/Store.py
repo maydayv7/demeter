@@ -1,9 +1,9 @@
-from Qdrant.Client import QdrantClient  # <--- FIXED IMPORT
+from Qdrant.Client import client  # <--- FIXED IMPORT
 from qdrant_client.models import PointStruct
 
-COLLECTION_NAME = "farm_memory"
+COLLECTION_NAME = "Farm_Memory"
 
-client = QdrantClient(url="http://localhost:6333")
+# client = QdrantClient(url="http://localhost:6333")
 
 def store_fmu(fmu):
     point = PointStruct(
