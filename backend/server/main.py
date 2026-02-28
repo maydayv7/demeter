@@ -1,25 +1,21 @@
 import sys
 import os
 
-# --- PATH FIX: Add project root to system path ---
+# --- PATH FIX ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../../'))
 sys.path.append(project_root)
-# -------------------------------------------------
+# ----------------
 
-import shutil
-import json
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-
 from Sentinel.agent import FMUBuilder
-from Qdrant.Store import store_fmu, COLLECTION_NAME # Import name to avoid typos
-from Qdrant.Client import client # This imports your CLOUD connection
-from Sentinel.Encoders.Vision import VisionEncoder
+
+# Import the new logic functions
+from backend.server.functions import process_ingest, process_search 
 
 app = FastAPI()
 
-# Allow connection from Next.js (port 3000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -28,106 +24,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize the Builder
+# Initialize Agents Once
 print("🌱 Initializing Demeter Agents...")
 builder = FMUBuilder()
 print("✅ Agents Ready.")
 
 @app.post("/ingest")
-async def ingest_fmu(
+async def ingest_endpoint(
     file: UploadFile = File(...), 
     sensors: str = Form(...), 
     metadata: str = Form(...)
 ):
-    """
-    Endpoint to receive raw data, convert to FMU, and store in Qdrant.
-    """
-    print(f"📡 Ingest Request Received: {file.filename}")
-    
-    temp_filename = f"temp_{file.filename}"
-    with open(temp_filename, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
     try:
-        # 2. Parse JSON data from frontend
-        sensor_data = json.loads(sensors)
-        meta_data = json.loads(metadata)
-
-        # 3. Create FMU (Uses Sentinel Logic)
-        abs_image_path = os.path.abspath(temp_filename)
-        fmu = builder.create_fmu(abs_image_path, sensor_data, meta_data)
-
-        # 4. Store in Qdrant (Uses Memory Logic)
-        store_fmu(fmu)
-        
-        return {"status": "success", "fmu_id": fmu.id}
-
+        # Pass the builder instance to the route handler
+        return await process_ingest(file, sensors, metadata, builder)
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Ingest Error: {e}")
         return {"status": "error", "message": str(e)}
 
-    finally:
-        # 5. Cleanup
-        if os.path.exists(temp_filename):
-            os.remove(temp_filename)
-
 @app.post("/search")
-async def search_fmu(
+async def search_endpoint(
     file: UploadFile = File(...),
     sensors: str = Form(...)
 ):
-    """
-    Semantic Search:
-    1. Receives Image + Sensor Data
-    2. Uses FMUBuilder to create a 'Transient FMU' (Query Object)
-    3. Uses that FMU's vector to find neighbors in Qdrant
-    """
-    temp_filename = f"temp_search_{file.filename}"
-    with open(temp_filename, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
     try:
-        sensor_data = json.loads(sensors)
-        abs_image_path = os.path.abspath(temp_filename)
-
-        # 1. Create a "Query FMU"
-        # We don't care about metadata for the query, just the vector
-        query_fmu = builder.create_fmu(abs_image_path, sensor_data, metadata={})
-
-        # 2. Search Qdrant using the FMU's vector
-        print(f"🔎 Searching Cloud for matches...")
-        
-        # Convert numpy array to list if needed
-        query_vector = query_fmu.vector.tolist() if hasattr(query_fmu.vector, 'tolist') else query_fmu.vector
-        
-        response = client.query_points(
-            collection_name="Farm_Memory",
-            query=query_vector,
-            limit=5,
-            with_payload=True
-        )
-        
-        # Extract the points list from QueryResponse object
-        hits = response.points
-        
-        # 3. Format results
-        results = []
-        for hit in hits:
-            results.append({
-                "id": hit.id,
-                "score": hit.score,
-                "payload": hit.payload
-            })
-            
-        return {"results": results}
-
+        return await process_search(file, sensors, builder)
     except Exception as e:
-        print(f"Search Error: {e}")
+        print(f"❌ Search Error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
-
-    finally:
-        if os.path.exists(temp_filename):
-            os.remove(temp_filename)
 
 if __name__ == "__main__":
     import uvicorn
