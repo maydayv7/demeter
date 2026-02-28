@@ -1,0 +1,21 @@
+# --- API Server ---
+fastapi
+uvicorn
+python-multipart
+
+# --- Vector Database ---
+# We force version 1.7.0+ to ensure .search() and .search_batch() exist
+qdrant-client>=1.7.0
+
+# --- AI & Image Processing ---
+numpy
+pillow
+torch
+torchvision
+ftfy
+regex
+tqdm
+
+# --- OpenAI CLIP (Vision Encoder) ---
+# This installs directly from GitHub because it's not on standard PyPI
+git+https://github.com/openai/CLIP.git
