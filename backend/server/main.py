@@ -12,7 +12,7 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from Sentinel.agent import FMUBuilder
 
-# Import the new logic functions
+# Import the logic functions
 from backend.server.functions import process_ingest, process_search 
 
 app = FastAPI()
@@ -30,12 +30,7 @@ print("🌱 Initializing Demeter Agents...")
 builder = FMUBuilder()
 print("✅ Agents Ready.")
 
-async def file_to_base64(file: UploadFile) -> str:
-    """Convert uploaded file to base64 string"""
-    contents = await file.read()
-    base64_string = base64.b64encode(contents).decode('utf-8')
-    await file.seek(0)  # Reset file pointer in case it's needed again
-    return base64_string
+# (Helper function removed as it is no longer needed for these endpoints)
 
 @app.post("/ingest")
 async def ingest_endpoint(
@@ -44,10 +39,8 @@ async def ingest_endpoint(
     metadata: str = Form(...)
 ):
     try:
-        # Convert file to base64
-        image_base64 = await file_to_base64(file)
-        # Pass the base64 string to the process function
-        return await process_ingest(image_base64, sensors, metadata, builder)
+        # FIX: Pass the 'file' object directly. Do NOT convert to base64 string.
+        return await process_ingest(file, sensors, metadata, builder)
     except Exception as e:
         print(f"❌ Ingest Error: {e}")
         import traceback
@@ -60,10 +53,8 @@ async def search_endpoint(
     sensors: str = Form(...)
 ):
     try:
-        # Convert file to base64
-        image_base64 = await file_to_base64(file)
-        # Pass the base64 string to the process function
-        return await process_search(image_base64, sensors, builder)
+        # FIX: Pass the 'file' object directly.
+        return await process_search(file, sensors, builder)
     except Exception as e:
         print(f"❌ Search Error: {e}")
         import traceback
