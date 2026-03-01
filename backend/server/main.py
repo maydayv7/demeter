@@ -1,5 +1,6 @@
 import sys
 import os
+import base64
 
 # --- PATH FIX ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +30,13 @@ print("🌱 Initializing Demeter Agents...")
 builder = FMUBuilder()
 print("✅ Agents Ready.")
 
+async def file_to_base64(file: UploadFile) -> str:
+    """Convert uploaded file to base64 string"""
+    contents = await file.read()
+    base64_string = base64.b64encode(contents).decode('utf-8')
+    await file.seek(0)  # Reset file pointer in case it's needed again
+    return base64_string
+
 @app.post("/ingest")
 async def ingest_endpoint(
     file: UploadFile = File(...), 
@@ -36,10 +44,14 @@ async def ingest_endpoint(
     metadata: str = Form(...)
 ):
     try:
-        # Pass the builder instance to the route handler
-        return await process_ingest(file, sensors, metadata, builder)
+        # Convert file to base64
+        image_base64 = await file_to_base64(file)
+        # Pass the base64 string to the process function
+        return await process_ingest(image_base64, sensors, metadata, builder)
     except Exception as e:
         print(f"❌ Ingest Error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
 
 @app.post("/search")
@@ -48,7 +60,10 @@ async def search_endpoint(
     sensors: str = Form(...)
 ):
     try:
-        return await process_search(file, sensors, builder)
+        # Convert file to base64
+        image_base64 = await file_to_base64(file)
+        # Pass the base64 string to the process function
+        return await process_search(image_base64, sensors, builder)
     except Exception as e:
         print(f"❌ Search Error: {e}")
         import traceback
