@@ -15,6 +15,10 @@ torchvision
 ftfy
 regex
 tqdm
+fastembed
+openai
+pypdf
+
 
 # --- OpenAI CLIP (Vision Encoder) ---
 # This installs directly from GitHub because it's not on standard PyPI
