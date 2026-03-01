@@ -8,6 +8,7 @@ export interface SensorData {
   humidity: string;
   crop: string;
   stage: string;
+  crop_id?: string;
 }
 
 // 2. Add the new Decision Type
@@ -24,6 +25,8 @@ export interface SearchResponse {
   search_results: SearchResult[]; 
   // The new AI Brain output
   agent_decision?: AgentDecision; 
+
+  new_fmu_id?: string;
 }
 
 // 4. Ensure SearchResult matches what Qdrant sends
@@ -37,7 +40,14 @@ export interface SearchResult {
     sensors?: {
       pH: number;
       EC: number;
+      temp: number;
+      humidity: number;
     };
+    
+    // 👇 ADD THE NEW SCHEMA FIELDS HERE
+    action_taken?: string; 
+    outcome?: string;
+    
     [key: string]: any; // Allow for other flexible fields
   };
 }
