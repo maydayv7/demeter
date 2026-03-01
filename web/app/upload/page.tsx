@@ -1,21 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, Save, Activity, Droplets, Thermometer, Wind, Search, Sprout, Calendar, BarChart3, ArrowRight } from "lucide-react";
-import { SensorData, SearchResult } from "@/models";
-import { IngestService } from "@/services/api"; // Ensure you have this service file created
+import { 
+  Upload, Save, Activity, Droplets, Thermometer, Wind, Search, 
+  Sprout, Calendar, BarChart3, ArrowRight, Brain, ShieldCheck, 
+  CheckCircle, AlertTriangle 
+} from "lucide-react";
+import { SensorData, SearchResult, AgentDecision } from "@/models"; // Ensure AgentDecision is exported in models
+import { IngestService } from "@/services/api";
 
 export default function UnifiedPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   
-  // Separate loading states to show which button is working
   const [loadingIngest, setLoadingIngest] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
   
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  
+  // 🧠 State for the Supervisor's Output
+  const [decision, setDecision] = useState<AgentDecision | null>(null);
 
-  // Sensor State
   const [sensors, setSensors] = useState<SensorData>({
     pH: "6.0",
     EC: "1.2",
@@ -32,7 +37,8 @@ export default function UnifiedPage() {
       const selected = e.target.files[0];
       setFile(selected);
       setPreview(URL.createObjectURL(selected));
-      setSearchResults([]); // Clear old results on new file
+      setSearchResults([]); 
+      setDecision(null); // Clear old reasoning when new image is picked
     }
   };
 
@@ -43,15 +49,12 @@ export default function UnifiedPage() {
   const handleIngest = async () => {
     if (!file) return alert("Please select an image first.");
     setLoadingIngest(true);
-    
     try {
       await IngestService.uploadFMU(file, sensors);
       alert("✅ FMU Created & Stored Successfully!");
-      // Optional: Clear form after success?
-      // setFile(null); setPreview(null); setSearchResults([]);
     } catch (error) {
-        console.log(error);
-      alert("❌ Ingest Failed. Is the backend running?");
+      console.error(error);
+      alert("❌ Ingest Failed. Check console.");
     } finally {
       setLoadingIngest(false);
     }
@@ -60,13 +63,24 @@ export default function UnifiedPage() {
   const handleSearch = async () => {
     if (!file) return alert("Please select an image to search with.");
     setLoadingSearch(true);
+    setDecision(null); // Clear previous decision while thinking...
 
     try {
       const response = await IngestService.searchFMU(file, sensors);
-      setSearchResults(response.results || []);
-      if (response.results.length === 0) alert("No similar memories found.");
+      
+      setSearchResults(response.search_results || []);
+      
+      // 🧠 Capture the Agent Decision from Backend
+      if (response.agent_decision) {
+        setDecision(response.agent_decision);
+      }
+
+      if ((response.search_results || []).length === 0 && !response.agent_decision) {
+        alert("No similar memories or insights found.");
+      }
     } catch (error) {
-      alert("❌ Search Failed. Is the backend running?");
+      console.error(error);
+      alert("❌ Search Failed. Check console.");
     } finally {
       setLoadingSearch(false);
     }
@@ -78,7 +92,7 @@ export default function UnifiedPage() {
     <main className="min-h-screen bg-slate-950 text-slate-200 p-8 flex flex-col items-center">
       
       {/* Top Section: Control Panel */}
-      <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
+      <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
         
         {/* Left: Image Input */}
         <div className="space-y-6">
@@ -102,16 +116,14 @@ export default function UnifiedPage() {
           </div>
         </div>
 
-        {/* Right: Sensor Inputs & Actions */}
+        {/* Right: Inputs & Actions */}
         <div className="space-y-8 flex flex-col justify-center">
            <div>
               <h1 className="text-3xl font-bold text-white mb-2">Demeter Control</h1>
               <p className="text-slate-500">Ingest new data or query the Historian Agent.</p>
            </div>
 
-           {/* Sensor Grid */}
            <div className="grid grid-cols-2 gap-4">
-               {/* Helper function to render inputs cleanly */}
                {[
                  { label: "pH Level", name: "pH", icon: Droplets, color: "text-emerald-400" },
                  { label: "EC (mS/cm)", name: "EC", icon: Activity, color: "text-yellow-400" },
@@ -135,7 +147,6 @@ export default function UnifiedPage() {
                ))}
            </div>
 
-           {/* Metadata Selects */}
            <div className="grid grid-cols-2 gap-4">
                <select name="crop" value={sensors.crop} onChange={handleInputChange} className="bg-slate-900 border border-slate-800 text-slate-300 rounded-xl p-3 outline-none">
                    <option>Lettuce</option><option>Basil</option><option>Tomato</option>
@@ -145,7 +156,6 @@ export default function UnifiedPage() {
                </select>
            </div>
 
-           {/* --- Action Buttons --- */}
            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
                <button 
                  onClick={handleIngest}
@@ -160,22 +170,82 @@ export default function UnifiedPage() {
                  disabled={loadingIngest || loadingSearch} 
                  className="py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20 disabled:opacity-50 flex items-center justify-center space-x-2"
                >
-                  {loadingSearch ? <Activity className="animate-spin w-5 h-5" /> : <><Search className="w-5 h-5" /> <span>Search Archives</span></>}
+                  {loadingSearch ? <Activity className="animate-spin w-5 h-5" /> : <><Search className="w-5 h-5" /> <span>Search & Reason</span></>}
                </button>
            </div>
         </div>
       </div>
 
-      {/* Bottom Section: Search Results (Conditional Render) */}
+      {/* 🧠 SECTION: SUPERVISOR REASONING OUTPUT */}
+      {decision && (
+        <div className="max-w-6xl w-full mb-12 animate-in fade-in slide-in-from-top-10 duration-700">
+            <div className="bg-gradient-to-r from-indigo-900/40 to-slate-900/40 border border-indigo-500/30 p-8 rounded-3xl relative overflow-hidden">
+                {/* Glowing Top Border */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+                
+                <div className="flex flex-col md:flex-row gap-8">
+                    {/* Icon Column */}
+                    <div className="flex-shrink-0 flex flex-col items-center justify-center md:items-start space-y-2">
+                        <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center border border-indigo-500/30 shadow-[0_0_30px_rgba(99,102,241,0.2)]">
+                            <Brain className="w-8 h-8 text-indigo-300" />
+                        </div>
+                        <span className="text-xs font-mono text-indigo-400 tracking-widest uppercase">Supervisor</span>
+                    </div>
+
+                    {/* Content Column */}
+                    <div className="flex-1 space-y-6">
+                        {/* Reasoning Text */}
+                        <div className="space-y-2">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                Analysis & Reasoning
+                            </h3>
+                            <p className="text-slate-300 leading-relaxed text-lg border-l-2 border-indigo-500/50 pl-4">
+                                {decision.reasoning}
+                            </p>
+                        </div>
+
+                        {/* Action & Confidence Row */}
+                        <div className="flex flex-col md:flex-row gap-4">
+                             {/* Recommended Action */}
+                             <div className="flex-1 bg-emerald-950/30 border border-emerald-500/30 p-4 rounded-xl flex items-center gap-4">
+                                <div className="p-2 bg-emerald-500/20 rounded-lg">
+                                    <CheckCircle className="w-6 h-6 text-emerald-400" />
+                                </div>
+                                <div>
+                                    <span className="text-xs text-emerald-500 uppercase font-bold tracking-wider">Recommended Action</span>
+                                    <p className="text-lg font-bold text-white">{decision.action}</p>
+                                </div>
+                             </div>
+
+                             {/* Confidence Score */}
+                             <div className="bg-slate-900/50 border border-slate-700 p-4 rounded-xl flex items-center gap-4 min-w-[200px]">
+                                <div className="p-2 bg-slate-700/50 rounded-lg">
+                                    <ShieldCheck className="w-6 h-6 text-blue-400" />
+                                </div>
+                                <div>
+                                    <span className="text-xs text-slate-400 uppercase font-bold tracking-wider">Confidence</span>
+                                    <p className="text-lg font-bold text-white">{(decision.confidence * 100).toFixed(0)}%</p>
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+      {/* 🧠 END REASONING SECTION */}
+
+
+      {/* Bottom Section: Search Results */}
       {searchResults.length > 0 && (
         <div className="max-w-6xl w-full animate-in fade-in slide-in-from-bottom-10 duration-500">
           <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-8">
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
               <Search className="w-6 h-6 text-blue-500" />
-              Retrieved Evidence
+              Retrieved Memory (Similar Cases)
             </h2>
             <span className="text-xs font-mono text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
-              {searchResults.length} SIMILAR CASES
+              {searchResults.length} RECORDS
             </span>
           </div>
 
@@ -202,7 +272,7 @@ export default function UnifiedPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Sensors</div>
                     <span className="font-mono text-xs text-slate-300">
-                       pH: {res.payload.sensors?.pH} | EC: {res.payload.sensors?.EC}
+                        pH: {res.payload.sensors?.pH} | EC: {res.payload.sensors?.EC}
                     </span>
                   </div>
                 </div>
