@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { 
   Upload, Save, Activity, Droplets, Thermometer, Wind, Search, 
   Sprout, Calendar, BarChart3, ArrowRight, Brain, ShieldCheck, 
-  CheckCircle, AlertTriangle, Mic, Square
+  CheckCircle, Mic, Square
 } from "lucide-react";
 import { SensorData, SearchResult, AgentDecision } from "@/models"; // Ensure AgentDecision is exported in models
 import { IngestService } from "@/services/api";
@@ -18,6 +18,9 @@ export default function UnifiedPage() {
   
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [textQuery, setTextQuery] = useState("");
+
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [explanationText, setExplanationText] = useState("");
 
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -75,6 +78,9 @@ export default function UnifiedPage() {
 
     try {
       const response = await IngestService.searchFMU(file, sensors);
+      if (response.explanation) {
+        setExplanationText(response.explanation);
+    }
       
       setSearchResults(response.search_results || []);
       
@@ -320,64 +326,48 @@ export default function UnifiedPage() {
         </div>
       </div>
 
-      {/* 🧠 SECTION: SUPERVISOR REASONING OUTPUT */}
       {decision && (
-        <div className="max-w-6xl w-full mb-12 animate-in fade-in slide-in-from-top-10 duration-700">
-            <div className="bg-gradient-to-r from-indigo-900/40 to-slate-900/40 border border-indigo-500/30 p-8 rounded-3xl relative overflow-hidden">
-                {/* Glowing Top Border */}
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
-                
-                <div className="flex flex-col md:flex-row gap-8">
-                    {/* Icon Column */}
-                    <div className="flex-shrink-0 flex flex-col items-center justify-center md:items-start space-y-2">
-                        <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center border border-indigo-500/30 shadow-[0_0_30px_rgba(99,102,241,0.2)]">
-                            <Brain className="w-8 h-8 text-indigo-300" />
-                        </div>
-                        <span className="text-xs font-mono text-indigo-400 tracking-widest uppercase">Supervisor</span>
-                    </div>
+        <div className="max-w-3xl w-full mb-12 bg-slate-900 border border-emerald-500/30 rounded-2xl overflow-hidden shadow-2xl shadow-emerald-900/20">
+          
+          {/* Header */}
+          <div className="bg-emerald-900/20 p-4 border-b border-emerald-500/20 flex justify-between items-center">
+            <h3 className="text-emerald-400 font-bold text-lg flex items-center gap-2">
+              🌱 Demeter Recommendation
+            </h3>
+            
+            {/* The "Why?" Button */}
+            <button 
+              onClick={() => setShowExplanation(!showExplanation)}
+              className="text-xs text-slate-400 hover:text-white underline transition-colors flex items-center gap-1"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              Why this output?
+            </button>
+          </div>
 
-                    {/* Content Column */}
-                    <div className="flex-1 space-y-6">
-                        {/* Reasoning Text */}
-                        <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                Analysis & Reasoning
-                            </h3>
-                            <p className="text-slate-300 leading-relaxed text-lg border-l-2 border-indigo-500/50 pl-4">
-                                {decision.reasoning}
-                            </p>
-                        </div>
+          {/* Main Decision Text */}
+          <div className="p-6">
+            <p className="text-2xl text-white font-light leading-relaxed">
+              {decision.reasoning || "Analyzing..."}
+            </p>
+          </div>
 
-                        {/* Action & Confidence Row */}
-                        <div className="flex flex-col md:flex-row gap-4">
-                             {/* Recommended Action */}
-                             <div className="flex-1 bg-emerald-950/30 border border-emerald-500/30 p-4 rounded-xl flex items-center gap-4">
-                                <div className="p-2 bg-emerald-500/20 rounded-lg">
-                                    <CheckCircle className="w-6 h-6 text-emerald-400" />
-                                </div>
-                                <div>
-                                    <span className="text-xs text-emerald-500 uppercase font-bold tracking-wider">Recommended Action</span>
-                                    <p className="text-lg font-bold text-white">{decision.action}</p>
-                                </div>
-                             </div>
-
-                             {/* Confidence Score */}
-                             <div className="bg-slate-900/50 border border-slate-700 p-4 rounded-xl flex items-center gap-4 min-w-[200px]">
-                                <div className="p-2 bg-slate-700/50 rounded-lg">
-                                    <ShieldCheck className="w-6 h-6 text-blue-400" />
-                                </div>
-                                <div>
-                                    <span className="text-xs text-slate-400 uppercase font-bold tracking-wider">Confidence</span>
-                                    <p className="text-lg font-bold text-white">{(decision.confidence * 100).toFixed(0)}%</p>
-                                </div>
-                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+          {/* The Explainer Dropdown (Hidden by default) */}
+          {showExplanation && (
+             <div className="bg-slate-950/50 p-6 border-t border-slate-800 animate-in slide-in-from-top-2">
+               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                 Reasoning Log
+               </h4>
+               <div className="text-slate-300 text-sm whitespace-pre-wrap font-mono leading-relaxed opacity-90">
+                 {explanationText ? explanationText : (
+                   <span className="animate-pulse text-slate-500">Generating logic trace...</span>
+                 )}
+               </div>
+             </div>
+          )}
         </div>
       )}
-      {/* 🧠 END REASONING SECTION */}
+      {/* 👆 END OF NEW COMPONENT 👆 */}
       {/* {decision && currentQueryId && (
     <div className="mt-4 bg-slate-900 p-4 rounded-xl border border-slate-700">
       <h4 className="text-white font-bold mb-2">Report Outcome</h4>

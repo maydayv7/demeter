@@ -27,6 +27,7 @@ export interface SearchResponse {
   agent_decision?: AgentDecision; 
 
   new_fmu_id?: string;
+  explanation?: string;
 }
 
 // 4. Ensure SearchResult matches what Qdrant sends
