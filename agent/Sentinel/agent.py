@@ -60,7 +60,8 @@ class FMUBuilder:
             "crop_id": metadata.get("crop_id", "UNKNOWN_CROP"),
             "sequence_number": metadata.get("sequence_number", 1),
             "action_taken": metadata.get("action_taken", "PENDING_ACTION"),
-            "outcome": metadata.get("outcome", "PENDING_OBSERVATION")
+            "outcome": metadata.get("outcome", "PENDING_OBSERVATION"),
+            "explanation_log": metadata.get("explanation_log", "PENDING_ANALYSIS")
         }
 
         return FMU(
