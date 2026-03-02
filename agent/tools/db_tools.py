@@ -3,7 +3,7 @@ from qdrant_client import QdrantClient, models
 from qdrant_client.models import PointStruct
 
 class DBTools:
-    def __init__(self, host="https://2a9e6ab0-e572-4bfa-a50f-0a169f9753d3.europe-west3-0.gcp.cloud.qdrant.io", collection_name="farm_memory"):
+    def __init__(self, host="https://2a9e6ab0-e572-4bfa-a50f-0a169f9753d3.europe-west3-0.gcp.cloud.qdrant.io", collection_name="Farm_Memory"):
         self.client = QdrantClient(url=host)
         self.collection_name = collection_name
         self.vector_size = 516 # As seen in Qdrant/Setup.py
