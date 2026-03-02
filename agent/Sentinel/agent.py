@@ -120,29 +120,29 @@ class FMUBuilder:
         return self.vision.encode(image_stream)
 
 
-if __name__ == "__main__":
-    builder = FMUBuilder()
+# if __name__ == "__main__":
+#     builder = FMUBuilder()
 
-    sensors = {
-        "pH": 5.9,
-        "EC": 1.3,
-        "temp": 25.0,
-        "humidity": 72.0
-    }
+#     sensors = {
+#         "pH": 5.9,
+#         "EC": 1.3,
+#         "temp": 25.0,
+#         "humidity": 72.0
+#     }
 
-    # Test with base64
-    sample_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="
+#     # Test with base64
+#     sample_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="
     
-    fmu = builder.create_fmu(sample_base64, sensors, {
-        "crop": "lettuce",
-        "stage": "vegetative"
-    })
+#     fmu = builder.create_fmu(sample_base64, sensors, {
+#         "crop": "lettuce",
+#         "stage": "vegetative"
+#     })
 
-    print("✅ FMU ID:", fmu.id)
-    print("✅ Vector length:", len(fmu.vector))
+#     print("✅ FMU ID:", fmu.id)
+#     print("✅ Vector length:", len(fmu.vector))
     
-    # Check for the new fields in the output
-    print("\n🔍 Checking Schema:")
-    print(f"   - Action: {fmu.metadata.get('action_taken')}")
-    print(f"   - Outcome: {fmu.metadata.get('outcome')}")
-    print(f"   - Sensors Saved: {'sensors' in fmu.metadata}")
+#     # Check for the new fields in the output
+#     print("\n🔍 Checking Schema:")
+#     print(f"   - Action: {fmu.metadata.get('action_taken')}")
+#     print(f"   - Outcome: {fmu.metadata.get('outcome')}")
+#     print(f"   - Sensors Saved: {'sensors' in fmu.metadata}")

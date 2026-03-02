@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from Sentinel.agent import FMUBuilder
 
 # Import the logic functions
-from backend.server.functions import process_ingest, process_search, process_text_query
+from backend.server.functions import process_ingest, process_search, process_text_query, process_audio_search
 app = FastAPI()
 
 app.add_middleware(
@@ -64,6 +64,17 @@ async def search_endpoint(
 async def text_query_endpoint(query: str = Form(...)):
     return await process_text_query(query)
 
+@app.post("/query-audio")
+async def audio_query_endpoint(file: UploadFile = File(...)):
+    """
+    Accepts an audio file (webm/wav), transcribes it, and runs a search.
+    """
+    try:
+        return await process_audio_search(file)
+    except Exception as e:
+        print(f"❌ Route Error: {e}")
+        return {"status": "error", "message": str(e)}
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
