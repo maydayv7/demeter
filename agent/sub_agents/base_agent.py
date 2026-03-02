@@ -18,7 +18,7 @@ class BaseReasoningAgent:
             try:
                 self.client = OpenAI(
                     base_url="https://api.groq.com/openai/v1",
-                    api_key=API_KEY
+                    api_key=os.getenv("GROQ_API_KEY")
                 )
             except Exception as e:
                 print(f"[{self.name}] ⚠️ Groq Connection Error: {e}")
