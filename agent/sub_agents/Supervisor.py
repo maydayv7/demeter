@@ -4,8 +4,8 @@ import numpy as np
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
+from agent.tools.actuation import convert_targets_to_actions
 
-# Imports
 from agent.Marl.bandit import ContextualBandit
 from agent.Marl.strategies import STRATEGIES, NUM_ACTIONS
 from agent.Qdrant.Store import store_fmu
@@ -187,38 +187,31 @@ class SupervisorAgent:
         }
         
         result = self.app.invoke(initial_state)
+        final_targets = result.get("merged_plan", {})
         
-        final_verdict = result['final_decision']
-        final_plan = result['merged_plan']
-        critique = result['critique']
-
-        # Handling the "Run them again" logic:
-        # Since this method is called by main_agent, we need to return a signal.
-        # However, to keep compatibility with your current simulator loop,
-        # we might have to force a safe fallback if rejected, OR return a special flag.
+        # 🟢 NEW STEP: CONVERT TARGETS TO PHYSICAL ACTIONS
+        current_sensors = fmu.metadata.get('sensor_data', {})
         
-        if final_verdict == "REJECT":
-            print(f"\n❌ SUPERVISOR REJECTED PLAN: {critique}")
-            print("   ⚠️ Reverting to SAFE MODE (Standard Maintenance).")
-            # Fallback to safe defaults if plans are bad
-            final_plan = {
-                "ph": 6.0, "ec": 1.2, "water_temp": 20, 
-                "co2": 400, "air_temp": 24, "humidity": 60, "light_intensity": 300,
-                "decision": "REJECTED_FALLBACK",
-                "reasoning": critique
-            }
-        else:
-            print(f"\n✅ SUPERVISOR APPROVED PLAN.")
-
-        # Store Metadata
-        fmu.metadata["action_taken"] = str(final_plan)
+        print(f"[{self.name}] ⚙️ Converting Targets to Actuator Commands...")
+        
+        # Calculate physical actions
+        physical_action_obj = convert_targets_to_actions(current_sensors, final_targets)
+        
+        # Convert Pydantic model to Dict for JSON serialization
+        final_payload = physical_action_obj.dict()
+        
+        # Log it
+        print(f"[{self.name}] 🚜 Activating Hardware: {final_payload}")
+        
+        # Store in FMU
+        fmu.metadata["action_taken"] = str(final_payload)
         fmu.metadata["bandit_action_id"] = action_idx
         fmu.metadata["strategic_intent"] = strategy_name
         
         if "image_b64" in fmu.metadata: del fmu.metadata["image_b64"]
         store_fmu(fmu)
         
-        return final_plan
+        return final_payload
 
     # --- ADVISORY ONLY (Not Enforced) ---
     def get_strategic_goal(self, fmu):
