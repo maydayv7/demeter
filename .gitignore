@@ -4,3 +4,5 @@ node_modules/
 __pycache__/
 /web/node_modules
 Knowledge_Base
+/.venv
+/agent/venv
