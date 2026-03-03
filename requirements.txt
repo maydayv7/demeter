@@ -18,7 +18,7 @@ tqdm
 fastembed
 openai
 pypdf
-
+groq
 
 # --- OpenAI CLIP (Vision Encoder) ---
 # This installs directly from GitHub because it's not on standard PyPI
