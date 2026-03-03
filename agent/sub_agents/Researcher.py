@@ -2,10 +2,16 @@ import uuid
 from qdrant_client import models
 from fastembed import TextEmbedding
 from Qdrant.Client import client  # Import your existing cloud connection
+from groq import Groq
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class ResearcherAgent:
     def __init__(self):
         self.client = client
+        self.llm = Groq(api_key=os.getenv("GROQ_API_KEY"))
         self.collection = "Knowledge_Base"
         # FastEmbed is lightweight and runs locally on CPU
         self.encoder = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
