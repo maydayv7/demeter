@@ -202,10 +202,15 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
         # --- STEP 3: The Reasoning Cycle ---
         print("🧠 Invoking Supervisor Agent...")
         mini_agent_reports = simulate_sub_agents(numeric_sensors)
+
+        fmu_vector = query_fmu.vector
+        if hasattr(fmu_vector, 'tolist'):
+             fmu_vector = fmu_vector.tolist()
         
         current_fmu_context = {
             "metadata": metadata,
-            "payload": {"sensors": numeric_sensors}
+            "payload": {"sensors": numeric_sensors},
+            "vector": fmu_vector
         }
 
         decision_json = supervisor.reason(
