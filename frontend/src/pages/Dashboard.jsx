@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchDashboardData } from '../api/farmApi'; // Import the new API
+import { fetchDashboardData } from '../api/farmApi'; 
 import { 
-  LayoutGrid, BarChart3, Bell, Settings, Droplet, Sun, Leaf, Search, Database, Thermometer, LogOut
+  LayoutGrid, BarChart3, Bell, Settings, Droplet, Sun, Leaf, Search, Database, Thermometer, LogOut, Brain 
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -16,21 +16,19 @@ const Dashboard = () => {
       
       if (data && data.length > 0) {
         // --- DATA MAPPING ---
-        // Converts raw Qdrant payload to UI format
         const formattedData = data.map(item => {
           const p = item.payload || {};
-          const sensors = p.sensors || {}; // Handle missing sensors gracefully
+          const sensors = p.sensors || {}; 
 
           return {
             id: p.crop_id || item.id,
-            name: p.crop || "Unknown Crop", // From your screenshot
+            name: p.crop || "Unknown Crop",
             location: p.location || "Unit A-1 • Hydroponic",
-            // Select image based on crop name (simple fallback logic)
             image: getImageForCrop(p.crop), 
             status: p.outcome === 'CRITICAL' ? 'Critical' : (p.action_taken === 'PENDING_ACTION' ? 'Attention' : 'Healthy'),
             statusMsg: p.stage || "Growing",
-            maturity: calculateMaturity(p.sequence_number), // Mock logic based on sequence
-            daysLeft: 30 - (p.sequence_number || 0), // Mock logic
+            maturity: calculateMaturity(p.sequence_number), 
+            daysLeft: 30 - (p.sequence_number || 0), 
             sensors: {
               lux: `${sensors.lux || 0}k`,
               temp: `${sensors.temp || 0}°C`,
@@ -40,7 +38,6 @@ const Dashboard = () => {
         });
         setCrops(formattedData);
       } else {
-        // Fallback or Empty State
         setCrops([]); 
       }
       setLoading(false);
@@ -49,7 +46,6 @@ const Dashboard = () => {
     loadData();
   }, []);
 
-  // Helper to pick images based on crop name string
   const getImageForCrop = (name) => {
     if (!name) return "https://images.unsplash.com/photo-1618164436241-4473940d1f5c?q=80&w=2000";
     const n = name.toLowerCase();
@@ -61,7 +57,6 @@ const Dashboard = () => {
   };
 
   const calculateMaturity = (seq) => {
-    // Just a visual approximation: assume sequence 10 is 100%
     const val = (seq || 1) * 10; 
     return val > 100 ? 100 : val;
   };
@@ -69,7 +64,7 @@ const Dashboard = () => {
   return (
     <div className="flex h-screen bg-[#F4F9F6] font-sans text-gray-800">
       
-      {/* SIDEBAR (Unchanged) */}
+      {/* SIDEBAR */}
       <aside className="w-64 bg-white border-r border-gray-100 flex flex-col justify-between hidden md:flex">
         <div>
           <div className="p-6 flex items-center gap-3">
@@ -98,9 +93,22 @@ const Dashboard = () => {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
+        
+        {/* --- HEADER (Updated with Button) --- */}
         <header className="h-20 px-8 flex items-center justify-between bg-white border-b border-gray-50">
           <h2 className="text-lg font-bold text-gray-800">Crops Overview</h2>
+          
           <div className="flex items-center gap-4">
+            {/* NEW BUTTON FOR AGENT CONTROL */}
+            <button 
+              onClick={() => navigate('/control')}
+              className="flex items-center gap-2 bg-white border border-emerald-100 text-emerald-600 hover:bg-emerald-50 px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm hover:shadow-md"
+            >
+              <Brain size={18} /> Agent Control
+            </button>
+
+            <div className="w-px h-6 bg-gray-200 mx-2"></div>
+
             <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full text-xs font-semibold text-emerald-700">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span> System online
             </div>
@@ -131,7 +139,7 @@ const Dashboard = () => {
   );
 };
 
-// Sub-components (Kept minimal for brevity)
+// Sub-components
 const SidebarItem = ({ icon, label, active }) => (
   <div className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-500 hover:bg-gray-50'}`}>
     {icon} <span className="flex-1 text-sm">{label}</span>
