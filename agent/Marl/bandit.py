@@ -57,8 +57,10 @@ class ContextualBandit:
             "scores": predicted_rewards.tolist(), 
             "confidences": confidences.tolist()
         }
+    
+    random_context = np.random.rand(519).astype(np.float32)    
 
-    def update(self, action_idx, context_vector, reward):
+    def update(self, action_idx, context_vector=random_context, reward="0.0"):
         """
         Online Learning: The AI still gets smarter with every feedback.
         """

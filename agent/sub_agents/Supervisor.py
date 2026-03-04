@@ -70,7 +70,7 @@ class SupervisorAgent:
             self.model = ChatOpenAI(
                 base_url="https://api.groq.com/openai/v1", 
                 api_key=API_KEY,
-                model="llama-3.3-70b-versatile",
+                model="qwen/qwen3-32b",
                 temperature=0.0 # Zero temp for strict judging
             )
         
