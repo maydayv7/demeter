@@ -2,27 +2,22 @@ import sys
 import os
 import requests
 import time
-from pathlib import Path
 
-# --- PATH SETUP ---
-# Adds the current directory (agent/) to sys.path so we can import sub_agents and Qdrant
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
-# Import Agents
 from sub_agents.fetching_agent import FetchingAgent
-from sub_agents.judge_agent import JudgeAgent  # 🆕 Import Judge
+from sub_agents.judge_agent import JudgeAgent
 from sub_agents.atmospheric_agent import AtmosphericAgent
 from sub_agents.water_agent import WaterAgent
 from sub_agents.Researcher import ResearcherAgent 
 from sub_agents.Supervisor import SupervisorAgent
 
-# Simulator Action URL
-# Updated to localhost to match the simulator we just created
+# Update this URL to your running simulator instance
 SIMULATOR_ACTION_URL = "https://unexhumed-melaine-bouncingly.ngrok-free.dev/simulation/action"
 
 def main():
-    print("🚀 Initializing Demeter Orchestrator (Judge-Review -> Supervisor-Store)...")
+    print("🚀 Initializing Demeter Orchestrator...")
     
     try:
         fetcher = FetchingAgent()
@@ -30,7 +25,10 @@ def main():
         researcher = ResearcherAgent()
         atmos_agent = AtmosphericAgent()
         water_agent = WaterAgent()
-        supervisor = SupervisorAgent()
+        # Pass researcher so Supervisor can share the RAG tools if needed
+        supervisor = SupervisorAgent(researcher_agent=researcher) 
+        
+        print("✅ Agents Online.")
     except Exception as e:
         print(f"❌ Init Error: {e}")
         return
@@ -40,47 +38,66 @@ def main():
         print("⏱️  STARTING NEW CYCLE")
         print("="*50)
         
-        # 1. Fetch Reality (Seq N)
+        # 1. Fetch
         fmu, sensor_snapshot, history = fetcher.fetch_and_process()
-        
         if not fmu:
-            print("❌ Fetch failed. Retrying in 10s...")
+            print("⚠️ No FMU found. Waiting...")
             time.sleep(10)
             continue
 
-        # 2. Judge Reviews History (Updates Seq N-1)
-        # Does NOT store current FMU yet
+        # 2. Judge
         judge.review_previous_cycle(fmu)
 
-        # 3. Research & Reasoning
+        # 3. 🟢 GET BANDIT STRATEGY (The Brain)
+        # The Supervisor consults the Bandit first to set the cycle's goal
+        strat_name, strat_instr, action_idx = supervisor.get_strategic_goal(fmu)
+        print(f"\n🎰 BANDIT STRATEGY: {strat_name}")
+        print(f"📝 Instruction: {strat_instr}")
+
+        # 4. Research
         crop = fmu.metadata.get("crop", "unknown")
         stage = fmu.metadata.get("stage", "unknown")
         query = f"optimal hydroponic conditions for {crop} in {stage} stage"
-        
         research_context = researcher.search(query)
         
-        print("\n🧠 Domain Agents Deliberating...")
-        atmos_plan = atmos_agent.reason(sensor_snapshot, research_context)
-        water_plan = water_agent.reason(sensor_snapshot, research_context)
+        # 5. 🟢 DELIBERATION (The Experts)
+        # We pass the strategy instruction and history to the LangGraph agents
+        print("\n🧠 Agents Planning...")
+        
+        # Updated call signature to match the new 'reason' method
+        atmos_plan = atmos_agent.reason(
+            sensors=sensor_snapshot, 
+            research=research_context, 
+            strategy=strat_instr, # Pass the instruction text (e.g. "LOWER pH...")
+            history=history       # Pass history for context awareness
+        )
+        
+        water_plan = water_agent.reason(
+            sensors=sensor_snapshot, 
+            research=research_context, 
+            strategy=strat_instr,
+            history=history
+        )
 
-        # 4. Supervisor Decides & STORES Reality (Seq N)
-        # Now passes the full 'fmu' object so Supervisor can save it
-        print("\n👮 Supervisor Validating & Storing...")
+        # 6. Synthesis (The Supervisor)
+        # Supervisor merges plans, checks conflicts, and ensures safety
+        print("\n👮 Supervisor Finalizing...")
         final_action = supervisor.synthesize_plan(
             atmos_plan, 
             water_plan, 
-            fmu,   # <--- Passing full FMU object
-            history
+            fmu, 
+            history,
+            strategy_info=(strat_name, strat_instr, action_idx)
         )
 
         print(f"🎯 FINAL COMMAND: {final_action}")
 
-        # 5. Execute
+        # 7. Execute
         try:
             requests.post(SIMULATOR_ACTION_URL, json=final_action)
-            print("✅ Action sent to Simulator.")
+            print("✅ Sent to Simulator.")
         except Exception as e:
-            print(f"❌ Connection error: {e}")
+            print(f"❌ Connection Error: {e}")
 
         print("\nzzz Sleeping 15s...")
         time.sleep(15)
