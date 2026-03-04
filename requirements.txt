@@ -1,28 +1,38 @@
-# --- API Server ---
-fastapi
-uvicorn
-python-multipart
+# --- Core Framework & Server ---
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+python-dotenv>=1.0.0
+pydantic>=2.6.0
+requests>=2.31.0
 
-# --- Vector Database ---
-# We force version 1.7.0+ to ensure .search() and .search_batch() exist
+# --- AI Orchestration (LangChain) ---
+langchain>=0.1.0
+langchain-core>=0.1.10
+langchain-openai>=0.0.5
+langgraph>=0.0.26
+langchain-community>=0.0.10
+
+# --- Database & Memory ---
 qdrant-client>=1.7.0
+mem0ai>=0.0.12
+fastembed>=0.2.0
 
-# --- AI ---
-numpy
-pillow
-torch
-torchvision
+# --- Computer Vision & Machine Learning ---
+numpy>=1.26.0
+torch>=2.2.0
+torchvision>=0.17.0
+ultralytics>=8.1.0
+opencv-python>=4.9.0.80
+Pillow>=10.2.0
+
+# --- CLIP (OpenAI) ---
+# Required for Sentinel/Vision Encoders
 ftfy
 regex
 tqdm
-fastembed
-openai
-pypdf
-groq
-mem0ai
-sentence-transformers 
-ultralytics
-
-# --- OpenAI CLIP (Vision Encoder) ---
-# This installs directly from GitHub because it's not on standard PyPI
 git+https://github.com/openai/CLIP.git
+
+# --- Utilities ---
+aiofiles>=23.2.1
+httpx>=0.26.0
