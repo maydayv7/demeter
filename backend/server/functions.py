@@ -16,7 +16,7 @@ from Qdrant.Client import client
 # Initialize Agents ONCE (Global Scope) to save memory
 print("🌱 Initializing Cognitive Stack...")
 researcher = ResearcherAgent()
-supervisor = SupervisorAgent(researcher)
+supervisor = SupervisorAgent(researcher.llm)
 explainer = ExplainerAgent(supervisor.llm)
 print("✅ Agents Ready.")
 

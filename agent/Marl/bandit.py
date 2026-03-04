@@ -5,7 +5,7 @@ import pickle
 import os
 
 class ContextualBandit:
-    def __init__(self, n_actions=15, feature_dim=519):
+    def __init__(self, n_actions=15, feature_dim=515):
         """
         LinGreedy Implementation (Pure Exploitation).
         We removed 'alpha' because we do not want to explore.
@@ -19,14 +19,20 @@ class ContextualBandit:
         # b: Reward Vector
         self.b = [np.zeros(self.d) for _ in range(self.n_actions)]
         
-        self.file_path = "model_bandit_greedy.pkl"
-        self.load()
+        # theta: Weight vectors for each action (optional, computed on-the-fly)
+        self.theta = [np.zeros(self.d) for _ in range(self.n_actions)]
+        
+        self.file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model_bandit_greedy.pkl")
+        self.load()  # Now calls with no arguments
 
     def select_action(self, context_vector):
         """
         Returns: (action_index, debug_info)
         Strictly picks the action with the highest PREDICTED reward.
         """
+        # Ensure context is flat (1D array)
+        context_vector = np.array(context_vector).reshape(-1)
+        
         predicted_rewards = np.zeros(self.n_actions)
         confidences = np.zeros(self.n_actions)
         
@@ -47,8 +53,11 @@ class ContextualBandit:
             # 3. Calculate Confidence (Optional, for UI only)
             # We calculate variance just to show the user "How sure are we?"
             # But we do NOT add this to the score.
-            variance = context_vector.dot(np.linalg.solve(self.A[a], context_vector))
-            confidences[a] = 1.0 / (1.0 + variance) # Simple confidence score (0-1)
+            try:
+                variance = context_vector.dot(np.linalg.solve(self.A[a], context_vector))
+                confidences[a] = 1.0 / (1.0 + variance) # Simple confidence score (0-1)
+            except np.linalg.LinAlgError:
+                confidences[a] = 0.0
 
         # 🟢 PURE EXPLOITATION: Pick max predicted reward
         chosen_action = np.argmax(predicted_rewards)
@@ -58,27 +67,62 @@ class ContextualBandit:
             "confidences": confidences.tolist()
         }
 
-    def update(self, action_idx, context_vector, reward):
+    def update(self, context_vector, action_idx, reward):
         """
         Online Learning: The AI still gets smarter with every feedback.
+        
+        Args:
+            context_vector: The feature vector (515-dim)
+            action_idx: Which action was taken
+            reward: The reward received
         """
+        # Ensure types are correct
+        action_idx = int(action_idx)
+        reward = float(reward)
+        
+        # Ensure context is flat (1D array)
+        context_vector = np.array(context_vector).reshape(-1)
+        
         # Update the regression model for the chosen arm
         self.A[action_idx] += np.outer(context_vector, context_vector)
         self.b[action_idx] += reward * context_vector
         
-        self.save()
-        print(f"📈 Greedy Model Updated | Action: {action_idx} | Reward: {reward}")
+        # Update theta (optional, can be computed on-the-fly in select_action)
+        try:
+            self.theta[action_idx] = np.linalg.solve(self.A[action_idx], self.b[action_idx])
+        except np.linalg.LinAlgError:
+            # Use pseudoinverse if solve fails
+            self.theta[action_idx] = np.linalg.pinv(self.A[action_idx]).dot(self.b[action_idx])
 
     def save(self):
-        with open(self.file_path, 'wb') as f:
-            pickle.dump({'A': self.A, 'b': self.b}, f)
+        """Save the model weights to disk"""
+        try:
+            with open(self.file_path, 'wb') as f:
+                pickle.dump({
+                    'A': self.A, 
+                    'b': self.b,
+                    'theta': self.theta
+                }, f)
+            print(f"💾 Model saved to {self.file_path}")
+        except Exception as e:
+            print(f"❌ Error saving model: {e}")
 
-    def load(self):
-        if os.path.exists(self.file_path):
-            try:
-                with open(self.file_path, 'rb') as f:
-                    data = pickle.load(f)
-                    self.A = data['A']
-                    self.b = data['b']
-            except Exception:
-                print("⚠️ Could not load model, starting fresh.")
+    def load(self):  # <--- FIXED: No filepath argument, uses self.file_path
+        """Loads weights from disk if they exist."""
+        if not os.path.exists(self.file_path):
+            print(f"ℹ️ No saved model found at {self.file_path}. Starting fresh.")
+            return False
+            
+        try:
+            with open(self.file_path, 'rb') as f:
+                state = pickle.load(f)
+            
+            # Restore state
+            self.A = state['A']
+            self.b = state['b']
+            self.theta = state['theta']
+            print(f"✅ Loaded bandit model from {self.file_path}")
+            return True
+        except Exception as e:
+            print(f"⚠️ Error loading model: {e}. Starting fresh.")
+            return False
