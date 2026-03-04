@@ -48,11 +48,11 @@ class WaterAgent:
                 temperature=0.2
             )
             
-            # 2. 🟢 BIND TOOLS (The "Arms")
+            # 2. BIND TOOLS (The "Arms")
             # We bind the general research tools AND the specific math tool (pH Safety)
             self.model_with_tools = llm.bind_tools([
                 ask_historian, 
-                ask_rag, 
+             #   ask_rag, 
                 web_search,
                 check_ph_safety,
                 diagnose_plant,

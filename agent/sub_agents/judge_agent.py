@@ -14,26 +14,25 @@ from agent.sub_agents.base_agent import BaseReasoningAgent
 from Qdrant.Client import client
 from Qdrant.Store import COLLECTION_NAME
 
-# 🟢 IMPORT ONLY THE REQUESTED TOOLS
 from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import diagnose_plant, ask_memory
 
 # --- STATE DEFINITION ---
 class JudgeState(TypedDict):
     # Inputs
-    current_fmu: Any     # The 'After' State (Sequence N)
+    current_fmu: Any     
     
     # Internal Context
-    prev_point: Any      # The 'Before' State (Sequence N-1)
+    prev_point: Any      
     crop_id: str
     
     # Forensic Evidence
-    visual_report: Dict  # Output from diagnose_plant
-    biography: Any       # Output from ask_memory
+    visual_report: Dict 
+    biography: Any      
     
     # Verdict
-    reward: float        # -1.0 to 1.0
-    outcome: str         # "IMPROVED", "DETERIORATED", "STABLE"
-    explanation: str     # Reasoning
+    reward: float        
+    outcome: str         
+    explanation: str     
     
     # Output
     training_data: Optional[Dict]
@@ -141,8 +140,7 @@ class JudgeAgent(BaseReasoningAgent):
                 with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp:
                     temp.write(base64.b64decode(image_b64))
                     temp_path = temp.name
-                
-                # 🟢 Invoke diagnose_plant
+
                 print(f"   -> Invoking Tool: diagnose_plant")
                 visual_data = diagnose_plant.invoke({"image_path": temp_path})
                 

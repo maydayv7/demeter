@@ -2,8 +2,7 @@ import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { 
   Upload, Save, Activity, Droplets, Thermometer, Wind, Search, 
-  Sprout, Calendar, BarChart3, ArrowRight, Brain, Mic, Square, 
-  ArrowLeft, Leaf, Database, CheckCircle2, Fan, FlaskConical, Waves, Zap
+  Sprout, Calendar, ArrowLeft, Leaf, Database, Mic, Square, Zap, Fan, FlaskConical, Waves, Brain
 } from "lucide-react";
 import { agentService } from "../api/agentApi";
 
@@ -26,7 +25,7 @@ export default function AgentControl() {
   
   // 🧠 State for the Supervisor's Output
   const [decision, setDecision] = useState(null);
-  const [strategy, setStrategy] = useState(""); // New state for Strategy
+  const [strategy, setStrategy] = useState(""); 
 
   const [sensors, setSensors] = useState({
     pH: "6.0",
@@ -77,7 +76,6 @@ export default function AgentControl() {
     try {
       const response = await agentService.searchFMU(file, sensors);
       
-      // Update State with new JSON structure
       if (response.explanation) setExplanationText(response.explanation);
       if (response.strategy) setStrategy(response.strategy);
       if (response.agent_decision) setDecision(response.agent_decision);
@@ -100,9 +98,10 @@ export default function AgentControl() {
     try {
       const data = await agentService.queryText(textQuery);
       if (data.results) {
+        // Map backend format to frontend expectation
         const mappedResults = data.results.map(r => ({
           id: r.id,
-          score: 1.0, 
+          score: r.score || 1.0, 
           payload: r.payload
         }));
         setSearchResults(mappedResults);
@@ -134,7 +133,6 @@ export default function AgentControl() {
     }
   };
 
-  // ... (Keep Audio Handlers: startRecording, stopRecording, handleAudioUpload as is) ...
   const startRecording = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -172,7 +170,7 @@ export default function AgentControl() {
         if (data.results) {
           const mappedResults = data.results.map(r => ({
             id: r.id,
-            score: 1.0,
+            score: r.score || 1.0,
             payload: r.payload
           }));
           setSearchResults(mappedResults);
@@ -183,6 +181,13 @@ export default function AgentControl() {
       } finally {
         setLoadingSearch(false);
       }
+    };
+
+    // 🟢 HELPER: Safe Number Formatting
+    const formatMetric = (val) => {
+      if (val === undefined || val === null) return "-";
+      const num = parseFloat(val);
+      return isNaN(num) ? val : num.toFixed(2);
     };
 
   return (
@@ -254,9 +259,9 @@ export default function AgentControl() {
 
           {/* RIGHT: Controls (Span 7) */}
           <div className="lg:col-span-7 space-y-6">
-             
-             {/* Search Bar */}
-             <div className="bg-white p-2 rounded-2xl border border-gray-200 flex gap-2 shadow-sm focus-within:shadow-md transition-shadow">
+              
+              {/* Search Bar */}
+              <div className="bg-white p-2 rounded-2xl border border-gray-200 flex gap-2 shadow-sm focus-within:shadow-md transition-shadow">
                 <button
                   onClick={isRecording ? stopRecording : startRecording}
                   className={`p-3 rounded-xl transition-all flex items-center justify-center ${
@@ -281,32 +286,32 @@ export default function AgentControl() {
                 >
                   Ask Agent
                 </button>
-             </div>
+              </div>
 
-             {/* Sensor Inputs Panel */}
-             <div className="bg-white border border-gray-200 rounded-3xl p-8 space-y-6 shadow-sm">
-                 <div className="flex items-center justify-between">
+              {/* Sensor Inputs Panel */}
+              <div className="bg-white border border-gray-200 rounded-3xl p-8 space-y-6 shadow-sm">
+                  <div className="flex items-center justify-between">
                     <h3 className="text-gray-900 font-bold flex items-center gap-2 text-lg">
                        <Activity className="w-5 h-5 text-emerald-500"/> Manual Parameters
                     </h3>
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-5">
-                     {[
-                       { label: "pH Level", name: "pH", icon: Droplets, color: "text-emerald-600", bg: "bg-emerald-50", type: "number" },
-                       { label: "EC (mS/cm)", name: "EC", icon: Activity, color: "text-yellow-600", bg: "bg-yellow-50", type: "number" },
-                       { label: "Temp (°C)", name: "temp", icon: Thermometer, color: "text-red-600", bg: "bg-red-50", type: "number" },
-                       { label: "Humidity (%)", name: "humidity", icon: Wind, color: "text-blue-600", bg: "bg-blue-50", type: "number" },
-                       { label: "Crop", name: "crop", icon: Sprout, color: "text-green-600", bg: "bg-green-50", type: "select", options: ["Lettuce", "Tomato", "Cucumber", "Basil", "Spinach"] },
-                       { label: "Stage", name: "stage", icon: Calendar, color: "text-purple-600", bg: "bg-purple-50", type: "select", options: ["Seedling", "Vegetative", "Flowering", "Fruiting"] }
-                     ].map((field) => (
-                       <div key={field.name} className="space-y-2 group">
-                         <label className={`text-[11px] font-bold uppercase tracking-wider ${field.color} ml-1`}>{field.label}</label>
-                         <div className="relative">
-                           <div className={`absolute left-3 top-2.5 w-8 h-8 rounded-lg ${field.bg} flex items-center justify-center z-10`}>
-                              <field.icon className={`w-4 h-4 ${field.color}`} />
-                           </div>
-                           {field.type === "select" ? (
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-5">
+                      {[
+                        { label: "pH Level", name: "pH", icon: Droplets, color: "text-emerald-600", bg: "bg-emerald-50", type: "number" },
+                        { label: "EC (mS/cm)", name: "EC", icon: Activity, color: "text-yellow-600", bg: "bg-yellow-50", type: "number" },
+                        { label: "Temp (°C)", name: "temp", icon: Thermometer, color: "text-red-600", bg: "bg-red-50", type: "number" },
+                        { label: "Humidity (%)", name: "humidity", icon: Wind, color: "text-blue-600", bg: "bg-blue-50", type: "number" },
+                        { label: "Crop", name: "crop", icon: Sprout, color: "text-green-600", bg: "bg-green-50", type: "select", options: ["Lettuce", "Tomato", "Cucumber", "Basil", "Spinach"] },
+                        { label: "Stage", name: "stage", icon: Calendar, color: "text-purple-600", bg: "bg-purple-50", type: "select", options: ["Seedling", "Vegetative", "Flowering", "Fruiting"] }
+                      ].map((field) => (
+                        <div key={field.name} className="space-y-2 group">
+                          <label className={`text-[11px] font-bold uppercase tracking-wider ${field.color} ml-1`}>{field.label}</label>
+                          <div className="relative">
+                            <div className={`absolute left-3 top-2.5 w-8 h-8 rounded-lg ${field.bg} flex items-center justify-center z-10`}>
+                               <field.icon className={`w-4 h-4 ${field.color}`} />
+                            </div>
+                            {field.type === "select" ? (
                              <select 
                                name={field.name} 
                                value={sensors[field.name]} 
@@ -317,7 +322,7 @@ export default function AgentControl() {
                                  <option key={opt} value={opt}>{opt}</option>
                                ))}
                              </select>
-                           ) : (
+                            ) : (
                              <input 
                                name={field.name} 
                                value={sensors[field.name]} 
@@ -325,31 +330,31 @@ export default function AgentControl() {
                                type="number" step="0.1" 
                                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-14 pr-4 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all text-gray-800 font-bold" 
                              />
-                           )}
-                         </div>
-                       </div>
-                     ))}
-                 </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
 
-                 {/* Action Buttons */}
-                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
-                     <button 
-                       onClick={handleIngest}
-                       disabled={loadingIngest || loadingSearch} 
-                       className="py-3.5 bg-gray-100 hover:bg-emerald-50 text-gray-600 hover:text-emerald-700 font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center space-x-2 group"
-                     >
-                        {loadingIngest ? <Activity className="animate-spin w-5 h-5" /> : <><Save className="w-5 h-5 text-gray-400 group-hover:text-emerald-500 transition-colors" /> <span>Store Memory</span></>}
-                     </button>
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                      <button 
+                        onClick={handleIngest}
+                        disabled={loadingIngest || loadingSearch} 
+                        className="py-3.5 bg-gray-100 hover:bg-emerald-50 text-gray-600 hover:text-emerald-700 font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center space-x-2 group"
+                      >
+                         {loadingIngest ? <Activity className="animate-spin w-5 h-5" /> : <><Save className="w-5 h-5 text-gray-400 group-hover:text-emerald-500 transition-colors" /> <span>Store Memory</span></>}
+                      </button>
 
-                     <button 
-                       onClick={handleSearch}
-                       disabled={loadingIngest || loadingSearch} 
-                       className="py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center space-x-2 group"
-                     >
-                        {loadingSearch ? <Activity className="animate-spin w-5 h-5" /> : <><Search className="w-5 h-5" /> <span>Reason & Solve</span></>}
-                     </button>
-                 </div>
-             </div>
+                      <button 
+                        onClick={handleSearch}
+                        disabled={loadingIngest || loadingSearch} 
+                        className="py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center space-x-2 group"
+                      >
+                         {loadingSearch ? <Activity className="animate-spin w-5 h-5" /> : <><Search className="w-5 h-5" /> <span>Reason & Solve</span></>}
+                      </button>
+                  </div>
+              </div>
           </div>
         </div>
 
@@ -413,7 +418,7 @@ export default function AgentControl() {
           </div>
         )}
 
-        {/* 2. Search Results Grid (Kept same) */}
+        {/* 2. Search Results Grid (Fixed for Sensors) */}
         {searchResults.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
             <div className="flex items-center justify-between mb-8">
@@ -427,46 +432,62 @@ export default function AgentControl() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {searchResults.map((res) => (
-                <div key={res.id} className="bg-white border border-gray-200 rounded-2xl hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/10 transition-all group relative overflow-hidden flex flex-col">
-                  {/* Confidence Badge */}
-                  <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-lg z-10">
-                    {(res.score * 100).toFixed(1)}% MATCH
-                  </div>
-                  
-                  {/* Card Header */}
-                  <div className="p-5 border-b border-gray-100 bg-gray-50/50">
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                      <Sprout className="w-5 h-5 text-emerald-500" />
-                      {res.payload.crop}
-                    </h3>
-                    <span className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-1 block">
-                      {res.payload.stage} Phase
-                    </span>
-                  </div>
-
-                  {/* Card Body */}
-                  <div className="p-5 space-y-4 flex-1">
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <div className="flex items-center gap-2 font-medium"><Calendar className="w-4 h-4 text-gray-400" /> Date</div>
-                      <span className="font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded text-xs">
-                        {res.payload.timestamp ? new Date(res.payload.timestamp).toLocaleDateString() : 'N/A'}
+              {searchResults.map((res) => {
+                // 🟢 FIX: Handle both new 'sensors' key and legacy 'sensor_data' key
+                const sensors = res.payload.sensors || res.payload.sensor_data || {};
+                
+                return (
+                  <div key={res.id} className="bg-white border border-gray-200 rounded-2xl hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/10 transition-all group relative overflow-hidden flex flex-col">
+                    {/* Confidence Badge */}
+                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-lg z-10">
+                      {(res.score * 100).toFixed(1)}% MATCH
+                    </div>
+                    
+                    {/* Card Header */}
+                    <div className="p-5 border-b border-gray-100 bg-gray-50/50">
+                      <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <Sprout className="w-5 h-5 text-emerald-500" />
+                        {res.payload.crop}
+                      </h3>
+                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-1 block">
+                        {res.payload.stage} Phase
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                         <div className="text-center p-2 rounded-lg bg-emerald-50 border border-emerald-100">
-                            <div className="text-[10px] text-emerald-600 font-bold uppercase">pH Level</div>
-                            <div className="text-emerald-800 font-mono font-bold text-lg">{res.payload.sensor_data?.pH || '-'}</div>
-                         </div>
-                         <div className="text-center p-2 rounded-lg bg-yellow-50 border border-yellow-100">
-                            <div className="text-[10px] text-yellow-600 font-bold uppercase">EC Level</div>
-                            <div className="text-yellow-800 font-mono font-bold text-lg">{res.payload.sensor_data?.EC || '-'}</div>
-                         </div>
+                    {/* Card Body */}
+                    <div className="p-5 space-y-4 flex-1">
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <div className="flex items-center gap-2 font-medium"><Calendar className="w-4 h-4 text-gray-400" /> Date</div>
+                        <span className="font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded text-xs">
+                          {res.payload.timestamp ? new Date(res.payload.timestamp).toLocaleDateString() : 'N/A'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                           <div className="text-center p-2 rounded-lg bg-emerald-50 border border-emerald-100">
+                              <div className="text-[10px] text-emerald-600 font-bold uppercase">pH Level</div>
+                              {/* 🟢 FIX: Use sensors.pH and format number */}
+                              <div className="text-emerald-800 font-mono font-bold text-lg">{formatMetric(sensors.pH)}</div>
+                           </div>
+                           <div className="text-center p-2 rounded-lg bg-yellow-50 border border-yellow-100">
+                              <div className="text-[10px] text-yellow-600 font-bold uppercase">EC Level</div>
+                              {/* 🟢 FIX: Use sensors.EC and format number */}
+                              <div className="text-yellow-800 font-mono font-bold text-lg">{formatMetric(sensors.EC)}</div>
+                           </div>
+                      </div>
+                      
+                      {/* Optional Outcome Section */}
+                      {res.payload.outcome && (
+                          <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-100 text-gray-600 line-clamp-2">
+                              <span className="font-bold text-gray-400 uppercase text-[10px] block mb-1">Outcome Note:</span>
+                              {/* Simple cleanup of outcome text */}
+                              {res.payload.outcome.replace("condition_assessed", "").replace("|", " • ")}
+                          </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

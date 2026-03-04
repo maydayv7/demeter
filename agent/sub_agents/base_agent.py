@@ -1,20 +1,18 @@
 import os
 from openai import OpenAI
-from dotenv import load_dotenv  # 🆕 Import this
+from dotenv import load_dotenv
 
-# 🆕 Load environment variables from .env file
 load_dotenv()
 
 # --- GROQ CONFIGURATION ---
 # Common Groq Models: "llama3-70b-8192", "mixtral-8x7b-32768"
-MODEL_ID = "openai/gpt-oss-120b"
+MODEL_ID = "llama-3.3-70b-versatile"
 API_KEY = os.environ.get("GROQ_API_KEY")
 
 class BaseReasoningAgent:
     def __init__(self, name):
         self.name = name
-        
-        # ⚡ Connect to Groq via OpenAI Client
+
         if not API_KEY:
             print(f"[{self.name}] ⚠️ WARNING: GROQ_API_KEY not found in environment.")
             self.client = None
@@ -43,7 +41,7 @@ class BaseReasoningAgent:
                     {"role": "system", "content": f"You are the {self.name} Agent for a high-tech hydroponic farm."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.6, # Slightly lower temp for more stable control decisions
+                temperature=0.6, 
                 max_tokens=1024
             )
             return response.choices[0].message.content
