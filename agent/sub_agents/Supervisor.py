@@ -209,7 +209,7 @@ class SupervisorAgent:
             "risk_matrix": {{ "nutrients": 0-10, "climate": 0-10, "visuals": 0-10, "history": 0-10 }}
         }}
         """
-
+        
         try:
             response = self.llm.chat.completions.create(
                 model="llama-3.1-8b-instant",
