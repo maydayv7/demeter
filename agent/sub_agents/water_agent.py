@@ -7,7 +7,7 @@ from agent.sub_agents.water_and_atmospheric_dependencies.state import AgentState
 from agent.sub_agents.water_and_atmospheric_dependencies.nodes import decide_node, simulate_node, finalize_node, execute_tools_node
 
 # Tools
-from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import ask_historian, ask_rag
+from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import ask_historian, ask_rag, diagnose_plant, ask_memory
 from agent.sub_agents.water_and_atmospheric_dependencies.tools import check_ph_safety, web_search
 
 # Configuration
@@ -44,7 +44,7 @@ class WaterAgent:
             llm = ChatOpenAI(
                 base_url="https://api.groq.com/openai/v1", 
                 api_key=API_KEY,
-                model="qwen/qwen3-32b",
+                model="llama-3.3-70b-versatile",
                 temperature=0.2
             )
             
@@ -54,7 +54,9 @@ class WaterAgent:
                 ask_historian, 
                 ask_rag, 
                 web_search,
-                check_ph_safety 
+                check_ph_safety,
+                diagnose_plant,
+                ask_memory
             ])
         
         # 3. Build the Graph (The "Brain")

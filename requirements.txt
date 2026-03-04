@@ -7,7 +7,7 @@ python-multipart
 # We force version 1.7.0+ to ensure .search() and .search_batch() exist
 qdrant-client>=1.7.0
 
-# --- AI & Image Processing ---
+# --- AI ---
 numpy
 pillow
 torch
@@ -19,6 +19,9 @@ fastembed
 openai
 pypdf
 groq
+mem0ai
+sentence-transformers 
+ultralytics
 
 # --- OpenAI CLIP (Vision Encoder) ---
 # This installs directly from GitHub because it's not on standard PyPI

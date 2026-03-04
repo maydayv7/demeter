@@ -7,13 +7,13 @@ from agent.sub_agents.water_and_atmospheric_dependencies.state import AgentState
 from agent.sub_agents.water_and_atmospheric_dependencies.nodes import decide_node, simulate_node, finalize_node, execute_tools_node
 
 # Tools
-from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import ask_historian, ask_rag
+from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import ask_historian, ask_rag, diagnose_plant, ask_memory
 from agent.sub_agents.water_and_atmospheric_dependencies.tools import calculate_vpd, web_search
 
 # Configuration
 API_KEY = os.environ.get("GROQ_API_KEY")
 
-MODEL_ID = "qwen/qwen3-32b"
+MODEL_ID = "llama-3.3-70b-versatile"
 
 ATMOS_PROMPT = """
 You are the Atmospheric Specialist for a Hydroponic Farm.
@@ -46,7 +46,7 @@ class AtmosphericAgent:
             llm = ChatOpenAI(
                 base_url="https://api.groq.com/openai/v1", 
                 api_key=API_KEY,
-                model="qwen/qwen3-32b",
+                model="llama-3.3-70b-versatile",
                 temperature=0.2
             )
             
@@ -56,7 +56,9 @@ class AtmosphericAgent:
                 ask_historian, 
                 ask_rag, 
                 web_search,
-                calculate_vpd 
+                calculate_vpd,
+                diagnose_plant,
+                ask_memory
             ])
         
         # 3. Build the Graph (The "Brain")
