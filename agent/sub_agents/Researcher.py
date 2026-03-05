@@ -1,7 +1,7 @@
 import uuid
 from qdrant_client import models
 from fastembed import TextEmbedding
-from Qdrant.Client import client  # Import your existing cloud connection
+from Qdrant.Client import client 
 from groq import Groq
 import os
 from dotenv import load_dotenv
@@ -23,7 +23,7 @@ class ResearcherAgent:
             self.client.create_collection(
                 collection_name=self.collection,
                 vectors_config=models.VectorParams(
-                    size=384,  # bge-small uses 384 dimensions
+                    size=384, 
                     distance=models.Distance.COSINE
                 )
             )
@@ -52,7 +52,6 @@ class ResearcherAgent:
         query_vec = list(self.encoder.embed([query]))[0]
         
         # 2. Search Qdrant
-        # CRITICAL FIX: Added 'with_payload=True' so we actually get the text back
         response = self.client.query_points(
             collection_name=self.collection,
             query=query_vec,
