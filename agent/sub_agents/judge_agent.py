@@ -46,7 +46,7 @@ class JudgeAgent(BaseReasoningAgent):
         self.llm = ChatOpenAI(
             base_url="https://api.groq.com/openai/v1",
             api_key=os.environ.get("GROQ_API_KEY"),
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             temperature=0.1
         )
         
@@ -165,6 +165,9 @@ class JudgeAgent(BaseReasoningAgent):
         LLM synthesizes Visual + History + Sensor Delta to form a verdict.
         """
         print(f"[{self.name}] ⚖️ Deliberating...")
+
+        print(f"   -> Previous Sensors: {state['prev_point'].payload.get('sensor_data', {})}")
+        print(f"   -> Current Sensors: {state['current_fmu'].metadata.get('sensor_data', {})}")
         
         prev_sensors = state["prev_point"].payload.get("sensor_data", {})
         curr_sensors = state["current_fmu"].metadata.get("sensor_data", {})
@@ -194,6 +197,7 @@ class JudgeAgent(BaseReasoningAgent):
         Output JSON: {{ "outcome": "IMPROVED"|"DETERIORATED"|"STABLE", "reward": float(-1.0 to 1.0), "reason": "Short explanation" }}
         """
         
+        print("Judge Prompt:\n", prompt)
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
             content = response.content.replace("```json", "").replace("```", "").strip()

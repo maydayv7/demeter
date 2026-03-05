@@ -5,7 +5,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 # Configuration
 API_KEY = os.environ.get("GROQ_API_KEY1")
-MODEL_ID = "llama-3.3-70b-versatile" # Using the latest supported Groq model
+MODEL_ID = "llama-3.1-8b-instant" # Using the latest supported Groq model
 
 def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
     """

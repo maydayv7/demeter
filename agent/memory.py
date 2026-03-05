@@ -44,25 +44,29 @@ class FarmMemory:
         client = QdrantClient(
             url=os.getenv("QDRANT_URL"),
             api_key=os.getenv("QDRANT_API_KEY"),
+            timeout=60 # <--- ADD THIS: Increase timeout to prevent SSL errors here too
         )
         
         collection_name = "Plant_Biographies_HF"
         
-        try:
-            # Check if collection exists
-            client.get_collection(collection_name)
-            # print(f"✅ Collection '{collection_name}' already exists")
-        except Exception:
-            # Create collection with 384 dimensions
+        # --- FIX START ---
+        # Instead of try/except, use the proper boolean check
+        if client.collection_exists(collection_name):
+            print(f"✅ Collection '{collection_name}' already exists.")
+        else:
             print(f"📝 Creating collection '{collection_name}' with 384 dimensions...")
-            client.create_collection(
-                collection_name=collection_name,
-                vectors_config=models.VectorParams(
-                    size=384,  # HuggingFace all-MiniLM-L6-v2 dimension
-                    distance=models.Distance.COSINE
+            try:
+                client.create_collection(
+                    collection_name=collection_name,
+                    vectors_config=models.VectorParams(
+                        size=384,
+                        distance=models.Distance.COSINE
+                    )
                 )
-            )
-            print(f"✅ Collection created successfully")
+                print(f"✅ Collection created successfully")
+            except Exception as e:
+                print(f"⚠️ Creation failed (might already exist): {e}")
+        # --- FIX END ---
 
     def get_plant_history(self, crop_id):
         """Retrieve the complete biographical history of a plant"""

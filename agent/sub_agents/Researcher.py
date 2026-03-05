@@ -46,7 +46,7 @@ class ResearcherAgent:
             ]
         )
 
-    def search(self, query: str, limit: int = 3) -> str:
+    def search(self, query: str, limit: int = 1) -> str:
         """Retrieves relevant textbook pages and formats them as a string."""
         # 1. Convert query to vector
         query_vec = list(self.encoder.embed([query]))[0]
