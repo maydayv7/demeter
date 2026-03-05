@@ -18,7 +18,7 @@ farm_memory = FarmMemory()
 # Initialize Qdrant for the Historian
 qdrant_client = QdrantClient(
     url=os.environ.get("QDRANT_URL", "http://localhost:6333"),
-    api_key=os.environ.get("QDRANT_API_KEY1"),
+    api_key=os.environ.get("QDRANT_API_KEY"),
 )
 
 doctor = VisionAgent()
@@ -50,8 +50,20 @@ def ask_memory(query: str):
         query: A description of the situation to look up (e.g. "What strategies were used when humidity was high?")
     """
     try:
-        response = farm_memory.memory.query(query, top_k=3)
-        return response
+        # FIX 1: Change .query() to .search()
+        # FIX 2: Change top_k to limit (standard mem0 kwarg)
+        results = farm_memory.memory.search(query, limit=3)
+        
+        # FIX 3: Format the output (mem0 returns a list/dict, we need a string)
+        if isinstance(results, dict) and 'results' in results:
+            data = results['results']
+            return "\n".join([f"- {item.get('memory', str(item))}" for item in data])
+            
+        elif isinstance(results, list):
+            return "\n".join([f"- {item.get('memory', str(item))}" for item in results])
+            
+        return str(results) if results else "No memory found."
+
     except Exception as e:
         return f"Memory unavailable: {str(e)}"
 
@@ -65,13 +77,13 @@ def ask_historian(query: str):
         query: A description of the situation to look up (e.g. "What happened when pH dropped to 5.5?")
     """
     try:
-        # 1. We use the Researcher's internal embedder to vectorize the query
-        # (Assuming ResearcherAgent has a method/property for this, or we use a fresh one)
-        # If your ResearcherAgent doesn't expose it, we can fallback to a simple keyword search 
-        # or instantiate a lightweight SentenceTransformer here.
-        
-        # For this example, we'll assume the Researcher can give us a vector:
-        query_vector = researcher_instance.embed_query(query) 
+        # --- FIX START ---
+        # 1. Use the encoder directly from the researcher instance
+        # 2. .embed() returns a generator, so we convert to list
+        # 3. We take the first item [0] since we only embedded one query
+        embeddings = list(researcher_instance.encoder.embed([query]))
+        query_vector = embeddings[0].tolist() # Convert numpy array to list for Qdrant
+        # --- FIX END ---
         
         hits = qdrant_client.search(
             collection_name=COLLECTION_NAME,
@@ -81,8 +93,10 @@ def ask_historian(query: str):
         
         results = []
         for hit in hits:
-            payload = hit.payload
-            results.append(f"Outcome: {payload.get('outcome')}\nAction: {payload.get('action_taken')}\n---")
+            # Safely get payload data with defaults
+            outcome = hit.payload.get('outcome', 'Unknown')
+            action = hit.payload.get('action_taken', 'Unknown')
+            results.append(f"Outcome: {outcome}\nAction: {action}\n---")
             
         return "\n".join(results) if results else "No relevant history found."
         

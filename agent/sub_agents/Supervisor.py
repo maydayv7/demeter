@@ -69,7 +69,7 @@ class SupervisorAgent:
             self.model = ChatOpenAI(
                 base_url="https://api.groq.com/openai/v1", 
                 api_key=API_KEY,
-                model="llama-3.3-70b-versatile",
+                model="llama-3.1-8b-instant",
                 temperature=0.0 # Zero temp for strict judging
             )
         
@@ -154,6 +154,8 @@ class SupervisorAgent:
         
         OUTPUT JSON: {{ "verdict": "APPROVE" or "REJECT", "critique": "Explanation..." }}
         """
+
+        print("Supervisor Prompt:\n", prompt)
         
         try:
             response = self.model.invoke([HumanMessage(content=prompt)])
@@ -167,6 +169,9 @@ class SupervisorAgent:
         except:
             # Default to reject if unsafe
             return {"final_decision": "REJECT", "critique": "Plan failed automated safety checks."}
+
+
+
 
     # --- ENTRY POINT ---
 
