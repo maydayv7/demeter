@@ -6,7 +6,7 @@ load_dotenv()
 
 # --- GROQ CONFIGURATION ---
 # Common Groq Models: "llama3-70b-8192", "mixtral-8x7b-32768"
-MODEL_ID = "llama-3.3-70b-versatile"
+MODEL_ID = "qwen/qwen3-32b"
 API_KEY = os.environ.get("GROQ_API_KEY")
 
 class BaseReasoningAgent:
@@ -32,7 +32,8 @@ class BaseReasoningAgent:
         """
         if not self.client:
             return "Error: LLM Client not connected (Check API Key)."
-            
+        
+        print("Other Prompt:\n", prompt)
         try:
             # Groq/OpenAI Chat Completion Structure
             response = self.client.chat.completions.create(
