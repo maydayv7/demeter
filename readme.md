@@ -12,7 +12,7 @@
 
 **Industrial-grade Multi-Agent System for autonomous hydroponic farming through AI-driven reasoning**
 
-[📖 Documentation](#-documentation) • [🚀 Quick Start](#-quick-start) • [🔧 API Reference](#-api-reference) • [🤝 Contributing](#-contributing)
+[📖 Documentation](https://drive.google.com/file/d/1VAN31mXPaQ7r4Fm8dpzjhgGeeQwvlH-Z/view?usp=drive_link) • [🚀 Quick Start](#-quick-start) • [🔧 API Reference](#-api-reference) • [🤝 Contributing](#-contributing)
 
 </div>
 
