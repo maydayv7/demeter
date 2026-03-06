@@ -24,46 +24,37 @@ qdrant_client = QdrantClient(
 doctor = VisionAgent()
 
 @tool
-def diagnose_plant(image_path: str):
+def diagnose_plant(image_b64: str = None):
     """
-    Uses Computer Vision to scan the plant image for disease, pests, or growth issues.
-    Call this if you suspect the plant is sick or need to verify visual health.
+    Uses Computer Vision to scan the latest plant image for disease.
     
-    Args:
-        image_path (str): The absolute file path of the image (provided in your instructions/context).
-        
-    Returns:
-        JSON report containing 'health_assessment' and 'object_counts'.
+    INSTRUCTIONS FOR LLM: 
+    Call this tool with NO arguments. The system will automatically 
+    attach the latest camera feed for you.
     """
-    if not image_path or image_path == "None":
-        return {"error": "No image path provided."}
+    if not image_b64:
+        return {"error": "System Error: No visual data was injected into the tool call."}
         
-    return doctor.analyze_frame(image_path)
+    # Calls the analyze_frame method you updated earlier
+    result = doctor.analyze_frame(image_b64)
+    print(f"Diagnose Plant Result: {result}")
+    return result
 
 @tool
-def ask_memory(query: str):
+def ask_memory(plant_id: str):
     """
     Consult the Farm Memory for past events, strategies, and outcomes.
     Useful for recalling what has been tried before and its results.
     
     Args:
-        query: A description of the situation to look up (e.g. "What strategies were used when humidity was high?")
+        plant_id: The specific crop ID to look up (e.g. "crop_beta").
     """
+    print(f"Consulting Farm Memory for plant ID: {plant_id}")
     try:
-        # FIX 1: Change .query() to .search()
-        # FIX 2: Change top_k to limit (standard mem0 kwarg)
-        results = farm_memory.memory.search(query, limit=3)
-        
-        # FIX 3: Format the output (mem0 returns a list/dict, we need a string)
-        if isinstance(results, dict) and 'results' in results:
-            data = results['results']
-            return "\n".join([f"- {item.get('memory', str(item))}" for item in data])
-            
-        elif isinstance(results, list):
-            return "\n".join([f"- {item.get('memory', str(item))}" for item in results])
-            
-        return str(results) if results else "No memory found."
-
+        # Fixed: calling the wrapper method directly on the instance
+        response = farm_memory.get_plant_history(plant_id)
+        print(f"Memory response for {plant_id}: {response}")
+        return response
     except Exception as e:
         return f"Memory unavailable: {str(e)}"
 
@@ -77,26 +68,25 @@ def ask_historian(query: str):
         query: A description of the situation to look up (e.g. "What happened when pH dropped to 5.5?")
     """
     try:
-        # --- FIX START ---
-        # 1. Use the encoder directly from the researcher instance
-        # 2. .embed() returns a generator, so we convert to list
-        # 3. We take the first item [0] since we only embedded one query
+        # 1. Generate Embedding using Researcher's Encoder (384 dims)
+        # .embed() returns a generator, convert to list and take first item
         embeddings = list(researcher_instance.encoder.embed([query]))
-        query_vector = embeddings[0].tolist() # Convert numpy array to list for Qdrant
-        # --- FIX END ---
+        query_vector = embeddings[0].tolist()
         
-        hits = qdrant_client.search(
-            collection_name=COLLECTION_NAME,
-            query_vector=query_vector,
+        # 2. Search the TEXT collection (Plant_Biographies_HF)
+        # We CANNOT search COLLECTION_NAME (Farm_Memory) because the vector dimensions don't match.
+        hits = qdrant_client.query_points(
+            collection_name="Plant_Biographies_HF  ",
+            query=query_vector,
             limit=3
         )
         
         results = []
         for hit in hits:
-            # Safely get payload data with defaults
-            outcome = hit.payload.get('outcome', 'Unknown')
-            action = hit.payload.get('action_taken', 'Unknown')
-            results.append(f"Outcome: {outcome}\nAction: {action}\n---")
+            # Handle different payload structures
+            content = hit.payload.get('text', hit.payload.get('memory', ''))
+            source = hit.payload.get('source', hit.payload.get('user_id', 'Unknown'))
+            results.append(f"[{source}]: {content}")
             
         return "\n".join(results) if results else "No relevant history found."
         
@@ -118,4 +108,3 @@ def ask_rag(query: str):
     except Exception as e:
         return f"Research unavailable: {str(e)}"
     
-

@@ -1,6 +1,7 @@
 import os
 import json
 import base64
+import re
 import tempfile
 from typing import TypedDict, Dict, Any, Optional
 
@@ -14,12 +15,14 @@ from agent.sub_agents.base_agent import BaseReasoningAgent
 from Qdrant.Client import client
 from Qdrant.Store import COLLECTION_NAME
 
-from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import diagnose_plant, ask_memory
+# Import farm_memory to allow writing verdicts
+from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import diagnose_plant, ask_memory, farm_memory
 
 # --- STATE DEFINITION ---
 class JudgeState(TypedDict):
     # Inputs
     current_fmu: Any     
+    image_b64: str          # Added to State
     
     # Internal Context
     prev_point: Any      
@@ -46,7 +49,7 @@ class JudgeAgent(BaseReasoningAgent):
         self.llm = ChatOpenAI(
             base_url="https://api.groq.com/openai/v1",
             api_key=os.environ.get("GROQ_API_KEY"),
-            model="llama-3.1-8b-instant",
+            model="qwen/qwen3-32b",
             temperature=0.1
         )
         
@@ -54,23 +57,13 @@ class JudgeAgent(BaseReasoningAgent):
 
     def _build_graph(self):
         workflow = StateGraph(JudgeState)
-
-        # 1. Retrieve: Get N-1 state from Qdrant
         workflow.add_node("retrieve_evidence", self.node_retrieve_evidence)
-        
-        # 2. Investigate: Run Tools (Vision & Memory)
         workflow.add_node("run_forensics", self.node_run_forensics)
-        
-        # 3. Deliberate: LLM Synthesis
         workflow.add_node("deliberate", self.node_deliberate)
-        
-        # 4. Update: Write to DBs
         workflow.add_node("file_verdict", self.node_file_verdict)
 
-        # Flow
         workflow.set_entry_point("retrieve_evidence")
         
-        # Conditional: If no history, skip to end
         workflow.add_conditional_edges(
             "retrieve_evidence",
             lambda x: "run_forensics" if x.get("prev_point") else "end_no_history",
@@ -89,9 +82,6 @@ class JudgeAgent(BaseReasoningAgent):
     # --- NODES ---
 
     def node_retrieve_evidence(self, state: JudgeState):
-        """
-        Finds the previous cycle (N-1) to compare against.
-        """
         print(f"[{self.name}] 🕵️ Retrieve Evidence...")
         fmu = state["current_fmu"]
         crop_id = fmu.metadata.get("crop_id")
@@ -102,7 +92,6 @@ class JudgeAgent(BaseReasoningAgent):
             return {"prev_point": None}
 
         prev_seq = current_seq - 1
-        
         try:
             s_filter = models.Filter(
                 must=[
@@ -117,7 +106,6 @@ class JudgeAgent(BaseReasoningAgent):
                 with_vectors=True
             )
             return {"prev_point": res[0] if res else None, "crop_id": crop_id}
-            
         except Exception as e:
             print(f"   -> DB Error: {e}")
             return {"prev_point": None}
@@ -127,34 +115,41 @@ class JudgeAgent(BaseReasoningAgent):
         Executes the TWO mandated tools: diagnose_plant and ask_memory.
         """
         print(f"[{self.name}] 🔎 Running Forensics...")
-        prev_point = state["prev_point"]
         crop_id = state["crop_id"]
-        
+        image_b64 = state.get("image_b64")
+
         # --- TOOL 1: diagnose_plant ---
         visual_data = {"status": "No Image"}
-        image_b64 = prev_point.payload.get("image_b64")
-        
         if image_b64:
             try:
-                # Create temp file for the tool
                 with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp:
                     temp.write(base64.b64decode(image_b64))
                     temp_path = temp.name
 
-                print(f"   -> Invoking Tool: diagnose_plant")
-                visual_data = diagnose_plant.invoke({"image_path": temp_path})
-                
-                # Cleanup
+                print(f"   -> Invoking Tool inside: diagnose_plant")
+                visual_data = diagnose_plant.invoke({"image_b64": image_b64})
                 os.remove(temp_path)
             except Exception as e:
                 visual_data = {"error": str(e)}
+        else:
+             print("   -> No image found for diagnosis.")
         
         # --- TOOL 2: ask_memory ---
-        # We formulate a query about this specific crop's history
-        query = f"What is the health history and past treatments for {crop_id}?"
-        print(f"   -> Invoking Tool: ask_memory")
-        memory_data = ask_memory.invoke({"query": query})
+       # print(f"   -> Invoking Tool: ask_memory for '{crop_id}'")
+        try:
+            # We updated the tool to expect 'plant_id', so we must pass that key
+            raw_memory = ask_memory.invoke({"plant_id": crop_id})
+            # FIX: Force conversion to string to ensure it renders in prompt
+        #    print(f"   -> Memory Retrieved: '{raw_memory}'")
+            memory_data = str(raw_memory)
+            
+        #    print(f"   -> Memory Retrieved {memory_data}")
+            self
+        except Exception as e:
+            print(f"   -> Memory Tool Error: {e}")
+            memory_data = "Memory unavailable."
         
+        # Explicitly return the dict to update state keys
         return {
             "visual_report": visual_data,
             "biography": memory_data
@@ -166,13 +161,15 @@ class JudgeAgent(BaseReasoningAgent):
         """
         print(f"[{self.name}] ⚖️ Deliberating...")
 
-        print(f"   -> Previous Sensors: {state['prev_point'].payload.get('sensor_data', {})}")
-        print(f"   -> Current Sensors: {state['current_fmu'].metadata.get('sensor_data', {})}")
+        # --- DEBUG: Verify State Content ---
+        # print(f"DEBUG CHECK -> Biography Content: '{state.get('biography')}'")
         
-        prev_sensors = state["prev_point"].payload.get("sensor_data", {})
-        curr_sensors = state["current_fmu"].metadata.get("sensor_data", {})
+        prev_sensors = state["prev_point"].payload.get("sensors", {})
+        curr_sensors = state["current_fmu"].metadata.get("sensors", {})
         visual = state["visual_report"]
-        history = state["biography"]
+        
+        # Ensure history is never None
+        history = state.get("biography", "No history available.")
         
         prompt = f"""
         You are the Chief Judge of an Automated Farm.
@@ -197,13 +194,30 @@ class JudgeAgent(BaseReasoningAgent):
         Output JSON: {{ "outcome": "IMPROVED"|"DETERIORATED"|"STABLE", "reward": float(-1.0 to 1.0), "reason": "Short explanation" }}
         """
         
-        print("Judge Prompt:\n", prompt)
+       # print("Judge Prompt:\n", prompt)
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            content = response.content.replace("```json", "").replace("```", "").strip()
-            verdict = json.loads(content)
+          #  print(f"   -> LLM Response for Judge Deliberation: {response.content}")
+            content = response.content.strip()
+
+         #   print(f"   -> Raw LLM Output: '{content}'")
+            code_block_match = re.search(r"```json\s*(\{.*?\})\s*```", content, re.DOTALL)
             
-            print(f"   -> Verdict: {verdict['outcome']} ({verdict['reward']})")
+            if code_block_match:
+                json_str = code_block_match.group(1)
+            else:
+                # 2. Fallback: Find the first '{' and the last '}'
+                # This handles cases where the LLM forgets the ```json tags
+                json_match = re.search(r"\{.*\}", content, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                else:
+                    raise ValueError(f"No JSON found in response: {content[:50]}...")
+
+            # 3. Parse
+            verdict = json.loads(json_str)
+            
+            print(f"   -> Verdict: {verdict.get('outcome')} ({verdict.get('reward')})")
             return {
                 "outcome": verdict.get("outcome", "STABLE"),
                 "reward": verdict.get("reward", 0.0),
@@ -215,13 +229,14 @@ class JudgeAgent(BaseReasoningAgent):
 
     def node_file_verdict(self, state: JudgeState):
         """
-        Writes the final judgment to Qdrant.
+        Writes the final judgment to Qdrant AND FarmMemory.
         """
         print(f"[{self.name}] 📝 Filing Verdict...")
         
         prev_id = state["prev_point"].id
+        crop_id = state["crop_id"]
         
-        # Update Qdrant Snapshot
+        # 1. Update Qdrant Snapshot
         self.qdrant.set_payload(
             collection_name=COLLECTION_NAME,
             points=[prev_id],
@@ -232,6 +247,16 @@ class JudgeAgent(BaseReasoningAgent):
                 "visual_diagnosis": str(state["visual_report"].get("health_assessment", "N/A"))
             }
         )
+
+        # 2. Write to FarmMemory (Text/Biography Store)
+        try:
+            verdict_summary = (
+                f"Cycle Review for {crop_id}: Result was {state['outcome']} "
+                f"(Reward: {state['reward']}). Judge's Note: {state['explanation']}"
+            )
+            farm_memory.log_event(crop_id, verdict_summary)
+        except Exception as e:
+            print(f"   -> ⚠️ Failed to log to FarmMemory: {e}")
         
         # Prepare Training Data Bundle
         training_data = {
@@ -244,16 +269,14 @@ class JudgeAgent(BaseReasoningAgent):
         return {"training_data": training_data}
 
     # --- ENTRY POINT ---
-    def review_previous_cycle(self, current_fmu: FMU):
-        """
-        The public API called by the main system.
-        """
+    def review_previous_cycle(self, current_fmu: FMU, image_b64: str):
         initial_state = {
             "current_fmu": current_fmu,
+            "image_b64": image_b64,
             "prev_point": None,
             "crop_id": "",
             "visual_report": {},
-            "biography": "",
+            "biography": "", # Starts empty
             "reward": 0.0,
             "outcome": "",
             "explanation": "",

@@ -39,17 +39,19 @@ def main():
         print("="*50)
         
         # 1. Fetch
-        fmu, sensor_snapshot, history = fetcher.fetch_and_process()
+        fmu, sensor_snapshot, history, image_b64 = fetcher.fetch_and_process()
         if not fmu:
             print("⚠️ No FMU found. Waiting...")
             time.sleep(10)
             continue
 
         # 2. Judge
-        judge.review_previous_cycle(fmu)
+        time.sleep(2) # Small delay to ensure FMU is fully available before judging
+        judge.review_previous_cycle(fmu, image_b64)
 
         # 3. 🟢 GET BANDIT STRATEGY (The Brain)
         # The Supervisor consults the Bandit first to set the cycle's goal
+        time.sleep(2) # Ensure judge's review is complete before strategy retrieval
         strat_name, strat_instr, action_idx = supervisor.get_strategic_goal(fmu)
         print(f"\n🎰 BANDIT STRATEGY: {strat_name}")
         print(f"📝 Instruction: {strat_instr}")
@@ -58,6 +60,8 @@ def main():
         crop = fmu.metadata.get("crop", "unknown")
         stage = fmu.metadata.get("stage", "unknown")
         query = f"optimal hydroponic conditions for {crop} in {stage} stage"
+
+        time.sleep(2) # Small delay before research
         research_context = researcher.search(query)
         
         # 5. 🟢 DELIBERATION (The Experts)
@@ -65,19 +69,28 @@ def main():
         print("\n🧠 Agents Planning...")
         
         # Updated call signature to match the new 'reason' method
+        time.sleep(2) # Ensure research context is ready before reasoning
         atmos_plan = atmos_agent.reason(
             sensors=sensor_snapshot, 
             research=research_context, 
             strategy=strat_instr, # Pass the instruction text (e.g. "LOWER pH...")
-            history=history       # Pass history for context awareness
+            history=history,       # Pass history for context awareness
+            image_b64=image_b64    # Pass the image data for visual diagnosis
         )
+
+        print(f"\n🌬️ Atmospheric Plan:\n{atmos_plan}")
+
+        time.sleep(2) # Small delay between agent calls
         
         water_plan = water_agent.reason(
             sensors=sensor_snapshot, 
             research=research_context, 
             strategy=strat_instr,
-            history=history
+            history=history,
+            image_b64=image_b64
         )
+
+        print(f"\n💧 Water & Nutrient Plan:\n{water_plan}")
 
         # 6. Synthesis (The Supervisor)
         # Supervisor merges plans, checks conflicts, and ensures safety
