@@ -5,7 +5,7 @@ import pickle
 import os
 
 class ContextualBandit:
-    def __init__(self, n_actions=15, feature_dim=519):
+    def __init__(self, n_actions=15, feature_dim=515):
         """
         LinGreedy Implementation (Pure Exploitation).
         We removed 'alpha' because we do not want to explore.
