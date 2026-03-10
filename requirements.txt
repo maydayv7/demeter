@@ -22,7 +22,6 @@ fastembed>=0.2.0
 numpy>=1.26.0
 torch>=2.2.0
 torchvision>=0.17.0
-ultralytics>=8.1.0
 opencv-python>=4.9.0.80
 Pillow>=10.2.0
 
@@ -36,7 +35,5 @@ git+https://github.com/openai/CLIP.git
 # --- Utilities ---
 aiofiles>=23.2.1
 httpx>=0.26.0
-
-# --- Conversation ---
 groq
 sentence_transformers

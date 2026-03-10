@@ -257,7 +257,7 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
             "new_fmu_id": query_fmu.id,
             "agent_decision": final_decision_json,
             "explanation": explanation_log,
-            "search_results": [{"id": p.id, "payload": p.payload} for p in points_list],
+            "search_results": [{"id": p.id, "score": p.score, "payload": p.payload} for p in points_list],
         }
 
     except Exception as e:

@@ -8,12 +8,8 @@ import {
   Bell,
   Settings,
   Droplet,
-  Sun,
   Leaf,
-  Search,
-  Database,
   Thermometer,
-  LogOut,
   Brain,
 } from "lucide-react";
 
@@ -47,7 +43,6 @@ const Dashboard = () => {
             maturity: calculateMaturity(p.sequence_number),
             daysLeft: 30 - (p.sequence_number || 0),
             sensors: {
-              lux: `${sensors.lux}k`,
               temp: `${sensors.temp}°C`,
               ph: sensors.ph,
             },
@@ -78,11 +73,6 @@ const Dashboard = () => {
     return "https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?q=80&w=2000";
   };
 
-  const calculateMaturity = (seq) => {
-    const val = (seq || 1) * 10;
-    return val > 100 ? 100 : val;
-  };
-
   return (
     <div className="flex h-screen bg-[#F4F9F6] font-sans text-gray-800">
       {/* SIDEBAR */}
@@ -108,11 +98,11 @@ const Dashboard = () => {
         <div className="p-4 border-t border-gray-50">
           <div className="flex items-center gap-3 p-2 rounded-xl">
             <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold">
-              AF
+              RR
             </div>
             <div className="flex-1">
-              <h4 className="text-sm font-bold text-gray-900">Alex Farmer</h4>
-              <p className="text-xs text-gray-500">Head Agronomist</p>
+              <h4 className="text-sm font-bold text-gray-900">Rajesh Rai</h4>
+              <p className="text-xs text-gray-500">Owner</p>
             </div>
           </div>
         </div>
@@ -216,12 +206,7 @@ const CropCard = ({ data }) => {
             ></div>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-50">
-          <SensorItem
-            icon={<Sun size={14} />}
-            value={data.sensors.lux}
-            label="Lux"
-          />
+        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
           <SensorItem
             icon={<Thermometer size={14} />}
             value={data.sensors.temp}

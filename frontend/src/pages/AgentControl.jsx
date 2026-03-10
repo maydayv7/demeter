@@ -22,7 +22,7 @@ import {
   Brain,
 } from "lucide-react";
 import { agentService } from "../api/agentApi";
-import { extractSensors } from "../utils/dataUtils";
+import { extractSensors, formatOutcome } from "../utils/dataUtils";
 
 export default function AgentControl() {
   const [file, setFile] = useState(null);
@@ -650,14 +650,11 @@ export default function AgentControl() {
 
                       {/* Optional Outcome Section */}
                       {res.payload.outcome && (
-                        <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-100 text-gray-600 line-clamp-2">
+                        <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-100 text-gray-600 line-clamp-3">
                           <span className="font-bold text-gray-400 uppercase text-[10px] block mb-1">
                             Outcome Note:
                           </span>
-                          {/* Simple cleanup of outcome text */}
-                          {res.payload.outcome
-                            .replace("condition_assessed", "")
-                            .replace("|", " • ")}
+                          {formatOutcome(res.payload.outcome)}
                         </div>
                       )}
                     </div>

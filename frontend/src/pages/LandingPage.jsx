@@ -7,7 +7,6 @@ import {
   Zap,
   Droplet,
   Cpu,
-  Building2,
   Activity,
   Rocket,
   BrainCircuit,
@@ -160,7 +159,7 @@ const LandingPage = () => {
 
       {/* --- FOOTER --- */}
       <footer className="relative z-10 flex-none w-full text-center py-4 text-gray-500 text-xs">
-        © 2024 Demeter AI Systems. Revolutionizing Hydroponics.
+        © 2026 Demeter AI Systems. Revolutionizing Hydroponics.
       </footer>
     </div>
   );

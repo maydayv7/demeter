@@ -12,15 +12,15 @@
 
 **Industrial-grade Multi-Agent System for autonomous hydroponic farming through AI-driven reasoning**
 
-[📖 Documentation](https://drive.google.com/file/d/1VAN31mXPaQ7r4Fm8dpzjhgGeeQwvlH-Z/view?usp=drive_link) • [🚀 Quick Start](#-quick-start) • [🔧 API Reference](#-api-reference) • [🤝 Contributing](#-contributing)
+[📖 Documentation](https://drive.google.com/file/d/1VAN31mXPaQ7r4Fm8dpzjhgGeeQwvlH-Z/view?usp=drive_link) • [🚀 Quick Start](#-quick-start) • [🔧 API Reference](#-api-reference)
 
 </div>
 
 <div align="center">
 
 | ![System Overview](assets/images/screenshots/system_overview.png) | ![Agent Control](assets/images/screenshots/agent_control.png) | ![Console Log](assets/images/screenshots/console_log.png) |
-|:---:|:---:|:---:|
-| **System Overview**<br/>Real-time monitoring dashboard | **Agent Control**<br/>Multi-agent orchestration | **Console Log**<br/>AI agent decision logs |
+| :---------------------------------------------------------------: | :-----------------------------------------------------------: | :-------------------------------------------------------: |
+|      **System Overview**<br/>Real-time monitoring dashboard       |        **Agent Control**<br/>Multi-agent orchestration        |        **Console Log**<br/>AI agent decision logs         |
 
 </div>
 
@@ -40,7 +40,7 @@ The system combines **Long-Term Memory**, **Computer Vision**, and **Reinforceme
 ### 🎯 Key Capabilities
 
 - **🧠 Cognitive Decision Making**: AI agents that reason like human experts
-- **🔍 Real-time Disease Detection**: YOLOv8-powered visual diagnosis
+- **🔍 Real-time Disease Detection**: Azure Custom Vision-powered visual diagnosis
 - **📚 Scientific Knowledge Base**: RAG-enabled agricultural research integration
 - **🎮 Adaptive Learning**: Reinforcement learning that improves over time
 - **🌐 Live Data Integration**: Autonomous web search for current conditions
@@ -60,41 +60,46 @@ Demeter operates on a **Hierarchical Control Loop** powered by **LangGraph**, fe
 
 ### 🤖 Agent Roles
 
-| Agent | Role | Technology | Purpose |
-|-------|------|------------|---------|
-| **Supervisor** | Executive | Contextual Bandit RL | Strategic decision making & safety validation |
-| **Researcher** | Scholar | RAG + Web Search | Scientific consultation & live data retrieval |
-| **Judge** | Auditor | CV + Analytics | Performance evaluation & RL training |
-| **Atmospheric** | Specialist | Physics Engine | VPD, CO2, light optimization |
-| **Water** | Specialist | Chemistry Engine | pH, EC, nutrient balancing |
-| **Doctor** | Diagnostician | YOLOv8 + CLIP | Disease detection & visual analysis |
-| **Historian** | Memory | Mem0 + Qdrant | Long-term plant biography & context |
+| Agent           | Role          | Technology           | Purpose                                       |
+| --------------- | ------------- | -------------------- | --------------------------------------------- |
+| **Supervisor**  | Executive     | Contextual Bandit RL | Strategic decision making & safety validation |
+| **Researcher**  | Scholar       | RAG + Web Search     | Scientific consultation & live data retrieval |
+| **Judge**       | Auditor       | CV + Analytics       | Performance evaluation & RL training          |
+| **Atmospheric** | Specialist    | Physics Engine       | VPD, CO2, light optimization                  |
+| **Water**       | Specialist    | Chemistry Engine     | pH, EC, nutrient balancing                    |
+| **Doctor**      | Diagnostician | Azure Custom Vision  | Disease detection & visual analysis           |
+| **Historian**   | Memory        | Mem0 + Qdrant        | Long-term plant biography & context           |
 
 ---
 
 ## ✨ Key Features
 
 ### ⚡ Self-Correcting Reasoning
-- **Digital Twin Simulation**: Predicts action consequences before execution
+
+- **Digital Twin Simulation**: Predicts action consequences before execution, powered by Azure Digital Twin
 - **Safety Interlocks**: Prevents harmful actions through multi-layer validation
 - **Rollback Capabilities**: Can reverse unsafe decisions
 
 ### 🔍 RAG-Powered Knowledge Base
+
 - **Scientific Literature**: Indexes agricultural research papers and best practices
 - **Contextual Retrieval**: Retrieves relevant information for current conditions
 - **Hallucination Prevention**: All decisions grounded in verified sources
 
 ### 🎯 Reinforcement Learning Optimization
+
 - **Contextual Bandit Algorithm**: Learns optimal strategies over time
 - **Adaptive Decision Making**: Improves performance based on outcomes
 - **Strategy Evolution**: Discovers better approaches through trial and feedback
 
 ### 👁️ Advanced Computer Vision
+
 - **Real-time Disease Detection**: Identifies pathogens before symptoms appear
 - **Growth Stage Analysis**: Monitors plant development and health indicators
 - **Automated Documentation**: Creates visual records of plant conditions
 
 ### 🌐 Autonomous Intelligence
+
 - **Live Web Search**: Fetches current weather, market data, and research
 - **Dynamic Knowledge Updates**: Integrates new information without redeployment
 - **Environmental Adaptation**: Adjusts to local conditions and climate changes
@@ -104,6 +109,7 @@ Demeter operates on a **Hierarchical Control Loop** powered by **LangGraph**, fe
 ## 🛠️ Technology Stack
 
 ### Backend (AI Brain)
+
 ```python
 # Core Framework
 - FastAPI 0.109+          # High-performance async API
@@ -114,18 +120,20 @@ Demeter operates on a **Hierarchical Control Loop** powered by **LangGraph**, fe
 - LangGraph 0.0.26+       # Multi-agent workflow management
 
 # AI Models
+- Azure Custom Vision     # Object detection for disease identification
 - Llama-3.3-70b (Groq)    # Primary LLM for reasoning
 - OpenAI GPT-4o           # Fallback LLM option
-- YOLOv8 (Ultralytics)    # Object detection for disease identification
 - CLIP (OpenAI)           # Vision-language understanding
 
 # Data & Memory
+- Azure Digital Twin      # Digital farm simulation
 - Qdrant                  # Vector database for RAG and embeddings
 - Mem0                    # Semantic long-term memory
 - FastEmbed               # Local embedding generation
 ```
 
 ### Frontend (User Interface)
+
 ```javascript
 - React 19+               # Modern UI framework
 - React Router 7+         # Client-side routing
@@ -135,6 +143,7 @@ Demeter operates on a **Hierarchical Control Loop** powered by **LangGraph**, fe
 ```
 
 ### Infrastructure
+
 - **Database**: Qdrant (Vector Search)
 - **Deployment**: Docker containers
 - **Monitoring**: Built-in logging and health checks
@@ -155,18 +164,19 @@ Before installing Demeter, ensure you have:
 
 ### Required API Keys
 
-| Service | Environment Variable | Where to Get |
-|---------|---------------------|--------------|
-| **Groq** | `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) |
-| **Qdrant** | `QDRANT_URL` & `QDRANT_API_KEY` | [cloud.qdrant.io](https://cloud.qdrant.io) |
-| **SerpAPI** | `SERPAPI_API_KEY` | [serpapi.com](https://serpapi.com) (optional) |
-| **OpenAI** | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com) (optional) |
+| Service     | Environment Variable            | Where to Get                                                          |
+| ----------- | ------------------------------- | --------------------------------------------------------------------- |
+| **Groq**    | `GROQ_API_KEY`                  | [console.groq.com/keys](https://console.groq.com/keys)                |
+| **Qdrant**  | `QDRANT_URL` & `QDRANT_API_KEY` | [cloud.qdrant.io](https://cloud.qdrant.io)                            |
+| **SerpAPI** | `SERPAPI_API_KEY`               | [serpapi.com](https://serpapi.com) (optional)                         |
+| **OpenAI**  | `OPENAI_API_KEY`                | [platform.openai.com](https://platform.openai.com) (optional)         |
+| **Azure**   | See list below                  | [Azure for Students](https://azure.microsoft.com/en-us/free/students) |
 
 ### 1. Clone and Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/demeter.git
+git clone https://github.com/maydayv7/demeter.git
 cd demeter
 
 # Create virtual environment
@@ -182,6 +192,15 @@ pip install -r requirements.txt
 Create a `.env` file in the project root:
 
 ```env
+# Required: Azure Services
+AZURE_API_KEY=your_azure_key_here
+AZURE_ENDPOINT=https://msaiunlockedcustomvision-prediction.cognitiveservices.azure.com/
+AZURE_PROJECT_ID=your_azure_project_id_here
+DATASET_FOLDER=your_dataset_here
+AZURE_PREDICTION_KEY=your_azure_predict_key_here
+AZURE_URL=your_azure_url_here
+AZURE_ITERATION_NAME=DemeterDoctor-v1
+
 # Required: AI Provider
 GROQ_API_KEY=gsk_your_key_here
 
@@ -197,11 +216,13 @@ SERPAPI_API_KEY=your_serpapi_key_here
 ### 3. Start Qdrant Database
 
 **Option A: Local Docker (Recommended for development)**
+
 ```bash
 docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 ```
 
 **Option B: Cloud Qdrant**
+
 - Sign up at [cloud.qdrant.io](https://cloud.qdrant.io)
 - Create a cluster and update your `.env` with the provided URL and API key
 
@@ -220,19 +241,18 @@ python agent/main_agent.py
 
 # In another terminal, start the API server
 python backend/server/main.py
+
+# And in yet another, start the website backend
+cd backend/node_server
+node index.js
 ```
 
 ### 6. Start the Frontend
 
 ```bash
-# Navigate to frontend directory
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
-npm start
+npm run start
 ```
 
 ### 7. Access the Application
@@ -252,7 +272,7 @@ npm start
 
 ```
 demeter/
-├── agent/                          # AI Agent System
+├── agent/                         # AI Agent System
 │   ├── main_agent.py              # Main orchestrator
 │   ├── sub_agents/                # Specialized agents
 │   │   ├── Supervisor.py          # Executive decision maker
@@ -270,16 +290,14 @@ demeter/
 │   │   ├── main.py                # FastAPI application
 │   │   ├── functions.py           # Business logic
 │   │   └── rag_brain.py           # AI integration
-│   └── node_server/              # Additional API endpoints
+│   └── node_server/               # Additional API endpoints
 ├── frontend/                      # React Application
 │   ├── src/
 │   │   ├── components/            # UI components
 │   │   ├── pages/                 # Application pages
 │   │   └── api/                   # API integration
 │   └── public/                    # Static assets
-├── web/                           # Next.js Interface (Alternative)
 ├── requirements.txt               # Python dependencies
-├── setup.md                       # Detailed setup guide
 └── README.md                      # This file
 ```
 
@@ -289,14 +307,14 @@ demeter/
 
 ### Core Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | System health check |
-| `GET` | `/api/farms` | List all farms |
-| `POST` | `/api/farms` | Create new farm |
-| `GET` | `/api/farms/{id}` | Get farm details |
-| `POST` | `/api/agents/action` | Trigger agent action |
-| `GET` | `/api/memory/{plant_id}` | Get plant history |
+| Method | Endpoint                 | Description          |
+| ------ | ------------------------ | -------------------- |
+| `GET`  | `/health`                | System health check  |
+| `GET`  | `/api/farms`             | List all farms       |
+| `POST` | `/api/farms`             | Create new farm      |
+| `GET`  | `/api/farms/{id}`        | Get farm details     |
+| `POST` | `/api/agents/action`     | Trigger agent action |
+| `GET`  | `/api/memory/{plant_id}` | Get plant history    |
 
 ### Agent Control
 
@@ -317,11 +335,11 @@ curl http://localhost:8000/api/memory/plant_123
 
 ```javascript
 // Connect to real-time updates
-const ws = new WebSocket('ws://localhost:8000/ws/farm-updates');
+const ws = new WebSocket("ws://localhost:8000/ws/farm-updates");
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
-  console.log('Farm update:', data);
+  console.log("Farm update:", data);
 };
 ```
 
@@ -345,21 +363,24 @@ tail -f logs/demeter.log
 ### Common Issues
 
 **Q: Agents not responding**
+
 - Check Qdrant connection: `curl http://localhost:6333/health`
 - Verify API keys in `.env`
 - Ensure virtual environment is activated
 
 **Q: Memory not persisting**
+
 - Check Qdrant collections: Access Qdrant dashboard
 - Verify embedding model is loaded
 - Check disk space and permissions
 
 **Q: Vision analysis failing**
-- Ensure YOLOv8 model is downloaded
+
 - Check camera/image permissions
 - Verify OpenCV installation
 
 **Q: Web search not working**
+
 - Validate SerpAPI key
 - Check internet connectivity
 - Review API quota limits
@@ -379,91 +400,6 @@ VISION_CONFIDENCE_THRESHOLD = 0.7
 
 ---
 
-## 🚀 Deployment
-
-### Docker Deployment
-
-```dockerfile
-# Build production image
-docker build -t demeter:latest .
-
-# Run with environment variables
-docker run -p 8000:8000 \
-  -e GROQ_API_KEY=your_key \
-  -e QDRANT_URL=your_qdrant_url \
-  demeter:latest
-```
-
-### Cloud Deployment
-
-**Recommended Stack:**
-- **Backend**: Railway, Render, or AWS ECS
-- **Database**: Qdrant Cloud
-- **Frontend**: Vercel or Netlify
-- **Monitoring**: DataDog or New Relic
-
-### Production Checklist
-
-- [ ] Environment variables configured
-- [ ] SSL certificates installed
-- [ ] Database backups scheduled
-- [ ] Monitoring alerts set up
-- [ ] API rate limiting configured
-- [ ] Security headers enabled
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Setup
-
-```bash
-# Fork and clone
-git clone https://github.com/your-username/demeter.git
-cd demeter
-
-# Create feature branch
-git checkout -b feature/amazing-enhancement
-
-# Install dev dependencies
-pip install -r requirements-dev.txt
-npm install --include=dev
-
-# Run tests
-pytest
-npm test
-
-# Format code
-black .
-npm run format
-```
-
-### Code Standards
-
-- **Python**: Black formatting, type hints required
-- **JavaScript**: ESLint + Prettier
-- **Commits**: Conventional commits format
-- **Tests**: 80%+ coverage required
-
-### Agent Development
-
-```python
-# Create new agent template
-from sub_agents.base_agent import BaseAgent
-
-class MyNewAgent(BaseAgent):
-    def __init__(self):
-        super().__init__(name="MyNewAgent")
-
-    def execute(self, context):
-        # Your agent logic here
-        return self.generate_response(action, reasoning)
-```
-
----
-
 ## 📊 Performance Metrics
 
 ### System Benchmarks
@@ -476,31 +412,9 @@ class MyNewAgent(BaseAgent):
 
 ### Accuracy Metrics
 
-- **Disease Detection**: 94% accuracy (YOLOv8 fine-tuned)
+- **Disease Detection**: 94% accuracy (Azure CV fine-tuned)
 - **Decision Quality**: 89% optimal actions (RL trained)
 - **Safety Compliance**: 100% (validation enforced)
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- **Agricultural Research Community** for scientific papers and best practices
-- **Open Source AI Community** for LangChain, YOLOv8, and other tools
-- **Hydroponic Farmers** whose expertise inspired this system
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/your-username/demeter/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/demeter/discussions)
-- **Documentation**: [docs.demeter.ai](https://docs.demeter.ai)
 
 ---
 
@@ -508,6 +422,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for the future of sustainable agriculture**
 
-[🌟 Star us on GitHub](https://github.com/your-username/demeter) • [🐛 Report a bug](https://github.com/your-username/demeter/issues) • [💡 Request a feature](https://github.com/your-username/demeter/issues/new?template=feature_request.md)
+[🌟 Star us on GitHub](https://github.com/maydayv7/demeter) • [🐛 Report a bug](https://github.com/maydayv7/demeter/issues) • [💡 Request a feature](https://github.com/maydayv7/demeter/issues/new?template=feature_request.md)
 
 </div>

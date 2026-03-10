@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Thermometer,
   Droplet,
-  Sun,
   FlaskConical,
   Sparkles,
 } from "lucide-react";
@@ -22,6 +21,7 @@ import {
   extractSensors,
   parsePythonString,
   formatNumber,
+  formatOutcome,
 } from "../utils/dataUtils";
 
 const CropDetails = () => {
@@ -89,7 +89,6 @@ const CropDetails = () => {
   const latestSensors = latest.cleanSensors || {
     temp: 0,
     ph: 0,
-    lux: 0,
     humidity: 0,
   };
 
@@ -127,13 +126,6 @@ const CropDetails = () => {
       status: "Optimal",
       icon: <Droplet size={18} className="text-blue-500" />,
       color: "bg-blue-100",
-    },
-    {
-      label: "Light",
-      value: `${formatNumber(latestSensors.lux)}`,
-      status: "Optimal",
-      icon: <Sun size={18} className="text-yellow-500" />,
-      color: "bg-yellow-100",
     },
   ];
 
@@ -182,7 +174,7 @@ const CropDetails = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4">
             {vitals.map((v, i) => (
               <div
                 key={i}
@@ -218,7 +210,7 @@ const CropDetails = () => {
                 <div className="text-sm text-gray-600 leading-relaxed">
                   <p className="mb-2">
                     <strong>Observation:</strong>{" "}
-                    {latestPayload.outcome || "Monitoring..."}
+                    {formatOutcome(latestPayload.outcome)}
                   </p>
 
                   <p className="font-bold text-xs text-gray-400 uppercase tracking-wide mb-1">
@@ -348,7 +340,7 @@ const CropDetails = () => {
                         : h.payload?.action_taken || "Routine Check"}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {h.payload?.outcome || "Monitoring"}
+                      {formatOutcome(h.payload?.outcome)}
                     </div>
                   </div>
                 </div>
