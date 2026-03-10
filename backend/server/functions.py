@@ -22,7 +22,7 @@ from Qdrant.Store import store_fmu, COLLECTION_NAME
 from Qdrant.Client import client
 
 # --- INITIALIZE COGNITIVE STACK ---
-print("🌱 Initializing Demeter Cognitive Stack (Bandit Disabled)...")
+print("🌱 Initializing Demeter Cognitive Stack....")
 
 researcher = ResearcherAgent()
 atmos_agent = AtmosphericAgent()

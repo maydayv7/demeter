@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 # Configuration
-API_KEY = os.environ.get("GROQ_API_KEY1")
+API_KEY = os.environ.get("GROQ_API_KEY")
 MODEL_ID = "qwen/qwen3-32b" # Using the latest supported Groq model
 
 def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
@@ -21,8 +21,9 @@ def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
         base_url="https://api.groq.com/openai/v1",
         api_key=API_KEY,
         model=MODEL_ID,
-        temperature=0.1, # Low temp for consistent physics logic
-        max_tokens=1024
+        temperature=0.1,
+        max_tokens=1024,
+        model_kwargs={"reasoning_effort": "none"}
     )
     
     system_prompt = (
@@ -50,6 +51,9 @@ def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
         
         # Clean and Parse JSON
         content = response.content.replace("```json", "").replace("```", "").strip()
+        if not content:
+            raise ValueError("Empty response from model")
+
         result = json.loads(content)
         
         # Default fallback keys if the LLM misses them
