@@ -13,7 +13,7 @@ from Qdrant.Store import COLLECTION_NAME
 from Qdrant.Client import client
 
 class FetchingAgent:
-    def __init__(self, simulator_url="https://unexhumed-melaine-bouncingly.ngrok-free.dev/azure/state"):
+    def __init__(self, simulator_url="https://unexhumed-melaine-bouncingly.ngrok-free.dev/simulation/state"):
         self.sim_url = simulator_url
         self.builder = FMUBuilder()
 
@@ -29,6 +29,10 @@ class FetchingAgent:
                 window_data = data.get("sensor_window", {})
                 image_b64 = data.get("image", "") 
                 raw_meta = data.get("metadata", {})
+
+                print(data)
+
+                print("Rawmeta received: ", raw_meta)
 
                 if not image_b64:
                     from PIL import Image
