@@ -74,7 +74,7 @@ const INPUT_FIELDS = [
     icon: Database,
     color: "var(--text-3)",
     type: "text",
-    placeholder: "e.g., Batch_A1",
+    placeholder: "Eg. Batch_A1",
   },
 ];
 

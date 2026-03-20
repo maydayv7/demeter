@@ -264,7 +264,7 @@ export default function SettingsPage() {
                     style={inputStyle}
                     value={draft.userDesignation}
                     onChange={(e) => set("userDesignation", e.target.value)}
-                    placeholder="e.g. Farm Owner"
+                    placeholder="Eg. Farm Owner"
                   />
                 </FieldRow>
                 <FieldRow
