@@ -1,14 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchCropDetails } from "../api/farmApi";
-import {
-  ArrowLeft,
-  Thermometer,
-  Droplet,
-  Wind,
-  Zap,
-  Activity,
-} from "lucide-react";
+import { ArrowLeft, Thermometer, Droplet, Wind, Activity } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -24,9 +17,13 @@ import {
   extractSensors,
   parsePythonString,
   formatNumber,
-  formatOutcome,
 } from "../utils/dataUtils";
+import {
+  AgentActionWidget,
+  AgentOutcomeWidget,
+} from "../components/AgentWidgets";
 import Sidebar from "../components/Sidebar";
+import { useSettings } from "../hooks/useSettings";
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -35,17 +32,18 @@ const CustomTooltip = ({ active, payload, label }) => {
       style={{
         padding: "8px 12px",
         borderRadius: 8,
-        fontSize: 11,
+        fontSize: 12,
         fontFamily: "DM Mono, monospace",
-        background: "var(--surface-2)",
+        background: "var(--tooltip-bg)",
         border: "1px solid var(--border)",
         color: "var(--text)",
+        boxShadow: "var(--shadow)",
       }}
     >
       <div style={{ color: "var(--text-3)", marginBottom: 4 }}>{label}</div>
       {payload.map((p) => (
-        <div key={p.dataKey} style={{ color: p.color }}>
-          {p.name}: {p.value}
+        <div key={p.dataKey} style={{ color: p.color, marginTop: 2 }}>
+          {p.name}: <strong>{p.value}</strong>
         </div>
       ))}
     </div>
@@ -57,8 +55,8 @@ function StatBox({ icon: Icon, label, value, color, unit }) {
     <div
       className="card-hover"
       style={{
-        borderRadius: 12,
-        padding: 16,
+        borderRadius: 14,
+        padding: "18px 20px",
         background: "var(--surface)",
         border: "1px solid var(--border)",
       }}
@@ -68,53 +66,30 @@ function StatBox({ icon: Icon, label, value, color, unit }) {
           display: "flex",
           alignItems: "center",
           gap: 8,
-          marginBottom: 10,
+          marginBottom: 12,
         }}
       >
         <div
           style={{
-            width: 28,
-            height: 28,
+            width: 32,
+            height: 32,
             borderRadius: 8,
-            background: `${color}15`,
+            background: `${color}18`,
             border: `1px solid ${color}30`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Icon size={13} style={{ color }} />
+          <Icon size={14} style={{ color }} />
         </div>
-        <span
-          style={{
-            fontSize: 10,
-            fontFamily: "DM Mono, monospace",
-            textTransform: "uppercase",
-            color: "var(--text-3)",
-          }}
-        >
-          {label}
-        </span>
+        <span className="sensor-label">{label}</span>
       </div>
-      <div
-        style={{
-          fontSize: 22,
-          fontWeight: 700,
-          fontFamily: "DM Mono, monospace",
-          color,
-        }}
-      >
-        {value}
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 400,
-            marginLeft: 2,
-            color: "var(--text-3)",
-          }}
-        >
-          {unit}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+        <span className="sensor-value" style={{ color }}>
+          {value}
         </span>
+        {unit && <span className="sensor-unit">{unit}</span>}
       </div>
     </div>
   );
@@ -133,6 +108,9 @@ const TABS = ["overview", "sensors", "log"];
 export default function CropDetails() {
   const { cropId } = useParams();
   const navigate = useNavigate();
+  const { settings } = useSettings();
+  const logLimit = settings.historyLogLimit ?? 20;
+
   const [history, setHistory] = useState([]);
   const [latest, setLatest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -174,7 +152,7 @@ export default function CropDetails() {
         >
           <span
             style={{
-              fontSize: 12,
+              fontSize: 13,
               fontFamily: "DM Mono, monospace",
               color: "var(--text-3)",
             }}
@@ -271,27 +249,19 @@ export default function CropDetails() {
           </button>
 
           <div>
-            <h1
-              style={{
-                fontWeight: 700,
-                fontSize: 15,
-                color: "var(--text)",
-                margin: 0,
-              }}
-            >
+            <h1 className="page-title">
               {p.crop || "Unknown"}{" "}
-              <span style={{ color: "var(--text-3)", fontWeight: 400 }}>
+              <span
+                style={{
+                  color: "var(--text-3)",
+                  fontWeight: 400,
+                  fontSize: 16,
+                }}
+              >
                 #{p.sequence_number || 0}
               </span>
             </h1>
-            <p
-              style={{
-                fontSize: 11,
-                fontFamily: "DM Mono, monospace",
-                color: "var(--text-3)",
-                margin: 0,
-              }}
-            >
+            <p className="page-subtitle">
               {cropId} · {p.stage}
             </p>
           </div>
@@ -330,9 +300,9 @@ export default function CropDetails() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 style={{
-                  padding: "5px 12px",
+                  padding: "5px 14px",
                   borderRadius: 8,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontFamily: "DM Mono, monospace",
                   textTransform: "capitalize",
                   cursor: "pointer",
@@ -340,7 +310,6 @@ export default function CropDetails() {
                     activeTab === tab ? "var(--surface-2)" : "transparent",
                   color: activeTab === tab ? "var(--text)" : "var(--text-3)",
                   border: `1px solid ${activeTab === tab ? "var(--border-bright)" : "transparent"}`,
-                  transition: "all 0.15s",
                 }}
               >
                 {tab}
@@ -363,10 +332,11 @@ export default function CropDetails() {
           {/* OVERVIEW */}
           {activeTab === "overview" && (
             <>
+              {/* Sensor stats */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gridTemplateColumns: "repeat(4,1fr)",
                   gap: 12,
                 }}
               >
@@ -400,25 +370,25 @@ export default function CropDetails() {
                 />
               </div>
 
+              {/* Outcome */}
+              {p.outcome && p.outcome !== "PENDING_OBSERVATION" && (
+                <AgentOutcomeWidget
+                  outcome={p.outcome}
+                  rewardScore={p.reward_score}
+                  strategicIntent={p.strategic_intent}
+                />
+              )}
+
               {/* pH chart */}
               <div
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 14,
                   padding: 20,
                   background: "var(--surface)",
                   border: "1px solid var(--border)",
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontFamily: "DM Mono, monospace",
-                    color: "var(--text-3)",
-                    marginBottom: 16,
-                  }}
-                >
-                  // HISTORICAL pH TRACE
-                </div>
+                <div className="section-label">HISTORICAL pH TRACE</div>
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={chartData}>
                     <defs>
@@ -443,7 +413,7 @@ export default function CropDetails() {
                     <XAxis
                       dataKey="t"
                       tick={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fill: "var(--text-3)",
                         fontFamily: "DM Mono",
                       }}
@@ -453,7 +423,7 @@ export default function CropDetails() {
                     <YAxis
                       domain={["auto", "auto"]}
                       tick={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fill: "var(--text-3)",
                         fontFamily: "DM Mono",
                       }}
@@ -474,72 +444,25 @@ export default function CropDetails() {
                 </ResponsiveContainer>
               </div>
 
-              {/* AI analysis */}
-              <div
-                style={{
-                  borderRadius: 12,
-                  padding: 20,
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                }}
-              >
+              {/* Latest Action */}
+              {p.action_taken && p.action_taken !== "PENDING_ACTION" && (
                 <div
                   style={{
-                    fontSize: 10,
-                    fontFamily: "DM Mono, monospace",
-                    color: "var(--text-3)",
-                    marginBottom: 12,
+                    borderRadius: 14,
+                    padding: 20,
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
                   }}
                 >
-                  // LATEST AI ANALYSIS
+                  <div className="section-label" style={{ marginBottom: 16 }}>
+                    LATEST ACTUATOR COMMAND
+                  </div>
+                  <AgentActionWidget
+                    actionTaken={p.action_taken}
+                    compact={false}
+                  />
                 </div>
-                <div
-                  style={{ display: "flex", alignItems: "flex-start", gap: 12 }}
-                >
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: "rgba(74,222,128,0.1)",
-                      border: "1px solid rgba(74,222,128,0.2)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Zap size={14} style={{ color: "var(--green)" }} />
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      lineHeight: 1.6,
-                      color: "var(--text-2)",
-                    }}
-                  >
-                    {formatOutcome(p.outcome) ||
-                      "System monitoring active. No anomalies detected."}
-                  </div>
-                </div>
-                {p.action_taken && p.action_taken !== "PENDING_ACTION" && (
-                  <div
-                    style={{
-                      marginTop: 12,
-                      padding: 10,
-                      borderRadius: 8,
-                      fontFamily: "DM Mono, monospace",
-                      fontSize: 11,
-                      background: "var(--bg-3)",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-3)",
-                    }}
-                  >
-                    <span style={{ color: "var(--green)" }}>ACTION: </span>
-                    {p.action_taken?.substring(0, 200)}…
-                  </div>
-                )}
-              </div>
+              )}
             </>
           )}
 
@@ -548,22 +471,13 @@ export default function CropDetails() {
             <>
               <div
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 14,
                   padding: 20,
                   background: "var(--surface)",
                   border: "1px solid var(--border)",
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontFamily: "DM Mono, monospace",
-                    color: "var(--text-3)",
-                    marginBottom: 16,
-                  }}
-                >
-                  // TEMP & HUMIDITY
-                </div>
+                <div className="section-label">TEMP &amp; HUMIDITY</div>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={chartData}>
                     <CartesianGrid
@@ -574,7 +488,7 @@ export default function CropDetails() {
                     <XAxis
                       dataKey="t"
                       tick={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fill: "var(--text-3)",
                         fontFamily: "DM Mono",
                       }}
@@ -583,7 +497,7 @@ export default function CropDetails() {
                     />
                     <YAxis
                       tick={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fill: "var(--text-3)",
                         fontFamily: "DM Mono",
                       }}
@@ -613,22 +527,13 @@ export default function CropDetails() {
 
               <div
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 14,
                   padding: 20,
                   background: "var(--surface)",
                   border: "1px solid var(--border)",
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontFamily: "DM Mono, monospace",
-                    color: "var(--text-3)",
-                    marginBottom: 16,
-                  }}
-                >
-                  // EC CONCENTRATION
-                </div>
+                <div className="section-label">EC CONCENTRATION</div>
                 <ResponsiveContainer width="100%" height={180}>
                   <AreaChart data={chartData}>
                     <defs>
@@ -653,7 +558,7 @@ export default function CropDetails() {
                     <XAxis
                       dataKey="t"
                       tick={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fill: "var(--text-3)",
                         fontFamily: "DM Mono",
                       }}
@@ -662,7 +567,7 @@ export default function CropDetails() {
                     />
                     <YAxis
                       tick={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fill: "var(--text-3)",
                         fontFamily: "DM Mono",
                       }}
@@ -689,7 +594,7 @@ export default function CropDetails() {
           {activeTab === "log" && (
             <div
               style={{
-                borderRadius: 12,
+                borderRadius: 14,
                 overflow: "hidden",
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
@@ -698,18 +603,12 @@ export default function CropDetails() {
               {/* Header row */}
               <div
                 style={{
-                  padding: "12px 20px",
+                  padding: "14px 20px",
                   borderBottom: "1px solid var(--border)",
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontFamily: "DM Mono, monospace",
-                    color: "var(--text-3)",
-                  }}
-                >
-                  // EVENT LOG — {history.length} ENTRIES
+                <div className="section-label">
+                  EVENT LOG — {history.length} ENTRIES (showing last {logLimit})
                 </div>
               </div>
 
@@ -717,102 +616,138 @@ export default function CropDetails() {
               <div>
                 {[...history]
                   .reverse()
-                  .slice(0, 20)
+                  .slice(0, logLimit)
                   .map((h, i) => (
                     <div
                       key={i}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "10px 20px",
-                        background:
-                          i % 2 === 0
-                            ? "transparent"
-                            : "rgba(255,255,255,0.015)",
-                        transition: "background 0.15s",
+                        borderBottom: "1px solid var(--border)",
+                        transition: "background 0.12s",
+                        cursor: "default",
                       }}
                       onMouseEnter={(e) =>
                         (e.currentTarget.style.background =
                           "rgba(74,222,128,0.04)")
                       }
                       onMouseLeave={(e) =>
-                        (e.currentTarget.style.background =
-                          i % 2 === 0
-                            ? "transparent"
-                            : "rgba(255,255,255,0.015)")
+                        (e.currentTarget.style.background = "transparent")
                       }
                     >
-                      {/* Severity dot */}
-                      <span
+                      {/* Row header */}
+                      <div
                         style={{
-                          width: 7,
-                          height: 7,
-                          borderRadius: "50%",
-                          background: logDotColor(h.payload),
-                          flexShrink: 0,
-                        }}
-                      />
-
-                      {/* Timestamp */}
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontFamily: "DM Mono, monospace",
-                          color: "var(--text-3)",
-                          flexShrink: 0,
-                          width: 50,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 20px",
                         }}
                       >
-                        {h.payload?.timestamp
-                          ? new Date(h.payload.timestamp).toLocaleTimeString(
-                              [],
-                              { hour: "2-digit", minute: "2-digit" },
-                            )
-                          : "--"}
-                      </span>
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: logDotColor(h.payload),
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontFamily: "DM Mono, monospace",
+                            color: "var(--text-3)",
+                            flexShrink: 0,
+                            width: 52,
+                          }}
+                        >
+                          {h.payload?.timestamp
+                            ? new Date(h.payload.timestamp).toLocaleTimeString(
+                                [],
+                                { hour: "2-digit", minute: "2-digit" },
+                              )
+                            : "--"}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontFamily: "DM Mono, monospace",
+                            color: "var(--text-3)",
+                            width: 36,
+                            flexShrink: 0,
+                          }}
+                        >
+                          #{h.payload?.sequence_number || i}
+                        </span>
 
-                      {/* Seq # */}
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontFamily: "DM Mono, monospace",
-                          color: "var(--text-3)",
-                          width: 34,
-                          flexShrink: 0,
-                        }}
-                      >
-                        #{h.payload?.sequence_number || i}
-                      </span>
+                        {/* Sensor snapshot */}
+                        <div
+                          style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
+                        >
+                          {[
+                            {
+                              label: "pH",
+                              value: h.cleanSensors?.ph,
+                              color: "var(--green)",
+                            },
+                            {
+                              label: "EC",
+                              value: h.cleanSensors?.ec,
+                              color: "var(--amber)",
+                            },
+                            {
+                              label: "T",
+                              value: h.cleanSensors?.temp + "°",
+                              color: "var(--blue)",
+                            },
+                            {
+                              label: "H",
+                              value: h.cleanSensors?.humidity + "%",
+                              color: "#a78bfa",
+                            },
+                          ].map(({ label, value, color }) => (
+                            <span
+                              key={label}
+                              style={{
+                                fontSize: 13,
+                                fontFamily: "DM Mono, monospace",
+                                display: "flex",
+                                alignItems: "baseline",
+                                gap: 3,
+                              }}
+                            >
+                              <span
+                                style={{ color: "var(--text-3)", fontSize: 11 }}
+                              >
+                                {label}
+                              </span>
+                              <span style={{ color, fontWeight: 700 }}>
+                                {formatNumber(value)}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
 
-                      {/* Sensor snapshot */}
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontFamily: "DM Mono, monospace",
-                          color: "var(--text-2)",
-                          flexShrink: 0,
-                        }}
-                      >
-                        pH {formatNumber(h.cleanSensors?.ph)} ·{" "}
-                        {formatNumber(h.cleanSensors?.temp)}°C · EC{" "}
-                        {formatNumber(h.cleanSensors?.ec)}
-                      </span>
+                        {/* Outcome badge */}
+                        {h.payload?.outcome && (
+                          <span style={{ marginLeft: "auto", flexShrink: 0 }}>
+                            <AgentOutcomeWidget
+                              outcome={h.payload.outcome}
+                              rewardScore={h.payload.reward_score}
+                            />
+                          </span>
+                        )}
+                      </div>
 
-                      {/* Outcome / action */}
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-3)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {formatOutcome(h.payload?.outcome) ||
-                          h.payload?.action_taken ||
-                          "Routine check"}
-                      </span>
+                      {/* Action row*/}
+                      {h.payload?.action_taken &&
+                        h.payload.action_taken !== "PENDING_ACTION" && (
+                          <div style={{ padding: "0 20px 10px 46px" }}>
+                            <AgentActionWidget
+                              actionTaken={h.payload.action_taken}
+                              compact
+                            />
+                          </div>
+                        )}
                     </div>
                   ))}
               </div>

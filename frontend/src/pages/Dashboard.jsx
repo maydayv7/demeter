@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFarmData } from "../hooks/useFarmData";
+import { useSettings } from "../hooks/useSettings";
 import {
   extractSensors,
   calculateMaturity,
@@ -18,6 +19,8 @@ import {
   RefreshCw,
   Leaf,
   Activity,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
@@ -61,7 +64,7 @@ function CropCard({ data, onClick }) {
     >
       {/* Image header */}
       <div
-        style={{ position: "relative", height: 136, background: "var(--bg-3)" }}
+        style={{ position: "relative", height: 130, background: "var(--bg-3)" }}
       >
         <div
           style={{
@@ -73,7 +76,7 @@ function CropCard({ data, onClick }) {
           }}
         >
           <Leaf
-            size={40}
+            size={38}
             style={{ color: "var(--border-bright)", opacity: 0.4 }}
           />
         </div>
@@ -119,11 +122,6 @@ function CropCard({ data, onClick }) {
             border: `1px solid ${st.border}`,
           }}
         >
-          {data.status === "Healthy"
-            ? "● "
-            : data.status === "Critical"
-              ? "▲ "
-              : "◆ "}
           {data.status.toUpperCase()}
         </div>
         {/* Seq badge */}
@@ -146,7 +144,7 @@ function CropCard({ data, onClick }) {
 
       <div
         style={{
-          padding: 14,
+          padding: "12px 14px",
           display: "flex",
           flexDirection: "column",
           gap: 10,
@@ -154,12 +152,12 @@ function CropCard({ data, onClick }) {
       >
         {/* Name */}
         <div>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>
             {data.name}
           </div>
           <div
             style={{
-              fontSize: 10,
+              fontSize: 11,
               marginTop: 2,
               fontFamily: "DM Mono, monospace",
               color: "var(--text-3)",
@@ -175,14 +173,28 @@ function CropCard({ data, onClick }) {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              fontSize: 10,
-              fontFamily: "DM Mono, monospace",
-              color: "var(--text-3)",
               marginBottom: 4,
             }}
           >
-            <span>Maturity</span>
-            <span style={{ color: "var(--green)" }}>{maturity}%</span>
+            <span
+              style={{
+                fontSize: 10,
+                fontFamily: "DM Mono, monospace",
+                color: "var(--text-3)",
+              }}
+            >
+              Maturity
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                fontFamily: "DM Mono, monospace",
+                color: "var(--green)",
+                fontWeight: 600,
+              }}
+            >
+              {maturity}%
+            </span>
           </div>
           <div
             style={{ height: 3, borderRadius: 2, background: "var(--border)" }}
@@ -209,26 +221,20 @@ function CropCard({ data, onClick }) {
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <Thermometer size={12} style={{ color: "var(--text-3)" }} />
-            <span
-              style={{
-                fontSize: 11,
-                fontFamily: "DM Mono, monospace",
-                color: "var(--text-2)",
-              }}
-            >
+            <Thermometer
+              size={12}
+              style={{ color: "var(--blue)", flexShrink: 0 }}
+            />
+            <span className="sensor-value-xs" style={{ color: "var(--blue)" }}>
               {data.sensors.temp}°C
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <Droplet size={12} style={{ color: "var(--text-3)" }} />
-            <span
-              style={{
-                fontSize: 11,
-                fontFamily: "DM Mono, monospace",
-                color: "var(--text-2)",
-              }}
-            >
+            <Droplet
+              size={12}
+              style={{ color: "var(--green)", flexShrink: 0 }}
+            />
+            <span className="sensor-value-xs" style={{ color: "var(--green)" }}>
               pH {data.sensors.ph}
             </span>
           </div>
@@ -249,7 +255,7 @@ function CropCard({ data, onClick }) {
               display: "flex",
               alignItems: "center",
               gap: 4,
-              fontSize: 10,
+              fontSize: 11,
               color: "var(--text-3)",
             }}
           >
@@ -266,12 +272,16 @@ function CropCard({ data, onClick }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { dashboard, loading, refreshData } = useFarmData();
+  const { settings } = useSettings();
+  const pageSize = settings.maxResultsPerPage || 12;
+
   const [crops, setCrops] = useState([]);
   const [search, setSearch] = useState("");
   const [filterStage, setFilterStage] = useState("All");
   const [filterCrop, setFilterCrop] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
 
   const getImg = (name) => {
     if (!name) return null;
@@ -307,6 +317,7 @@ export default function Dashboard() {
           };
         }),
       );
+      setPage(1);
     }
   }, [dashboard]);
 
@@ -329,6 +340,8 @@ export default function Dashboard() {
     [crops, search, filterStage, filterCrop, filterStatus],
   );
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   const activeFilters = [filterStage, filterCrop, filterStatus].filter(
     (f) => f !== "All",
   ).length;
@@ -362,7 +375,7 @@ export default function Dashboard() {
           overflow: "hidden",
         }}
       >
-        {/* ── Header — 64px, border aligns with sidebar ── */}
+        {/* Header */}
         <header
           style={{
             flexShrink: 0,
@@ -376,24 +389,8 @@ export default function Dashboard() {
           }}
         >
           <div>
-            <h1
-              style={{
-                fontWeight: 700,
-                fontSize: 18,
-                color: "var(--text)",
-                margin: 0,
-              }}
-            >
-              Crops Overview
-            </h1>
-            <p
-              style={{
-                fontSize: 11,
-                fontFamily: "DM Mono, monospace",
-                color: "var(--text-3)",
-                margin: 0,
-              }}
-            >
+            <h1 className="page-title">Crops Overview</h1>
+            <p className="page-subtitle">
               {filtered.length} of {crops.length} crops shown
             </p>
           </div>
@@ -434,13 +431,13 @@ export default function Dashboard() {
                   borderRadius: 20,
                   background: "var(--surface)",
                   border: "1px solid var(--border)",
-                  fontSize: 11,
+                  fontSize: 12,
                   fontFamily: "DM Mono, monospace",
                   color,
                 }}
               >
-                <span>{count}</span>
-                <span style={{ opacity: 0.6 }}>{label}</span>
+                <span style={{ fontWeight: 700 }}>{count}</span>
+                <span style={{ opacity: 0.7 }}>{label}</span>
               </div>
             ))}
           </div>
@@ -465,7 +462,7 @@ export default function Dashboard() {
           </button>
         </header>
 
-        {/* Search + Filter bar */}
+        {/* Search + filter bar */}
         <div
           style={{
             flexShrink: 0,
@@ -491,7 +488,10 @@ export default function Dashboard() {
             />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               placeholder="Search crops, IDs, stages…"
               style={{
                 width: "100%",
@@ -500,7 +500,7 @@ export default function Dashboard() {
                 paddingTop: 7,
                 paddingBottom: 7,
                 borderRadius: 8,
-                fontSize: 12,
+                fontSize: 13,
                 fontFamily: "DM Mono, monospace",
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
@@ -545,7 +545,6 @@ export default function Dashboard() {
                 : "var(--surface)",
               border: `1px solid ${showFilters ? "rgba(74,222,128,0.3)" : "var(--border)"}`,
               color: showFilters ? "var(--green)" : "var(--text-2)",
-              transition: "all 0.15s",
             }}
           >
             <SlidersHorizontal size={13} />
@@ -571,7 +570,10 @@ export default function Dashboard() {
             {STAGES.slice(0, 4).map((s) => (
               <button
                 key={s}
-                onClick={() => setFilterStage(filterStage === s ? "All" : s)}
+                onClick={() => {
+                  setFilterStage(filterStage === s ? "All" : s);
+                  setPage(1);
+                }}
                 style={{
                   padding: "5px 12px",
                   borderRadius: 20,
@@ -584,7 +586,6 @@ export default function Dashboard() {
                       : "var(--surface)",
                   border: `1px solid ${filterStage === s ? "rgba(74,222,128,0.4)" : "var(--border)"}`,
                   color: filterStage === s ? "var(--green)" : "var(--text-3)",
-                  transition: "all 0.15s",
                 }}
               >
                 {s}
@@ -611,19 +612,28 @@ export default function Dashboard() {
               {
                 label: "Crop Type",
                 value: filterCrop,
-                set: setFilterCrop,
+                set: (v) => {
+                  setFilterCrop(v);
+                  setPage(1);
+                },
                 opts: CROPS,
               },
               {
                 label: "Stage",
                 value: filterStage,
-                set: setFilterStage,
+                set: (v) => {
+                  setFilterStage(v);
+                  setPage(1);
+                },
                 opts: STAGES,
               },
               {
                 label: "Status",
                 value: filterStatus,
-                set: setFilterStatus,
+                set: (v) => {
+                  setFilterStatus(v);
+                  setPage(1);
+                },
                 opts: STATUSES,
               },
             ].map(({ label, value, set, opts }) => (
@@ -633,7 +643,7 @@ export default function Dashboard() {
               >
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     fontFamily: "DM Mono, monospace",
                     color: "var(--text-3)",
                   }}
@@ -648,7 +658,7 @@ export default function Dashboard() {
                       appearance: "none",
                       padding: "5px 24px 5px 10px",
                       borderRadius: 8,
-                      fontSize: 11,
+                      fontSize: 12,
                       fontFamily: "DM Mono, monospace",
                       background: "var(--surface)",
                       border: "1px solid var(--border)",
@@ -679,10 +689,11 @@ export default function Dashboard() {
             ))}
             <button
               onClick={() => {
+                setSearch("");
                 setFilterStage("All");
                 setFilterCrop("All");
                 setFilterStatus("All");
-                setSearch("");
+                setPage(1);
               }}
               style={{
                 marginLeft: "auto",
@@ -705,7 +716,7 @@ export default function Dashboard() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))",
                 gap: 16,
               }}
             >
@@ -716,29 +727,105 @@ export default function Dashboard() {
                     key={i}
                     className="shimmer"
                     style={{
-                      height: 260,
+                      height: 255,
                       borderRadius: 16,
                       border: "1px solid var(--border)",
                     }}
                   />
                 ))}
             </div>
-          ) : filtered.length > 0 ? (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                gap: 16,
-              }}
-            >
-              {filtered.map((crop) => (
-                <CropCard
-                  key={crop.id}
-                  data={crop}
-                  onClick={() => navigate(`/crop/${crop.id}`)}
-                />
-              ))}
-            </div>
+          ) : paginated.length > 0 ? (
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))",
+                  gap: 16,
+                }}
+              >
+                {paginated.map((crop) => (
+                  <CropCard
+                    key={crop.id}
+                    data={crop}
+                    onClick={() => navigate(`/crop/${crop.id}`)}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    marginTop: 24,
+                  }}
+                >
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      color: page === 1 ? "var(--text-3)" : "var(--text-2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (n) => (
+                      <button
+                        key={n}
+                        onClick={() => setPage(n)}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          fontFamily: "DM Mono, monospace",
+                          fontSize: 12,
+                          background:
+                            n === page ? "var(--green)" : "var(--surface)",
+                          border: `1px solid ${n === page ? "transparent" : "var(--border)"}`,
+                          color: n === page ? "#0c1a0e" : "var(--text-2)",
+                          fontWeight: n === page ? 700 : 400,
+                        }}
+                      >
+                        {n}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      color:
+                        page === totalPages ? "var(--text-3)" : "var(--text-2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div
               style={{
@@ -764,7 +851,7 @@ export default function Dashboard() {
               >
                 <Activity size={24} style={{ color: "var(--text-3)" }} />
               </div>
-              <div style={{ color: "var(--text-2)" }}>
+              <div style={{ color: "var(--text-2)", fontSize: 14 }}>
                 No crops match your filters
               </div>
               <button
@@ -775,7 +862,7 @@ export default function Dashboard() {
                   setFilterStatus("All");
                 }}
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontFamily: "DM Mono, monospace",
                   padding: "6px 16px",
                   borderRadius: 8,

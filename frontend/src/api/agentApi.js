@@ -1,3 +1,9 @@
+import {
+  USE_MOCK_DATA,
+  MOCK_SEARCH_RESULT,
+  MOCK_DASHBOARD,
+} from "../data/mockData";
+
 const API_URL = "http://localhost:8000";
 
 export const agentService = {
@@ -5,6 +11,11 @@ export const agentService = {
    * Uploads an image + sensors to create a new FMU (Functional Memory Unit)
    */
   async uploadFMU(file, sensors) {
+    if (USE_MOCK_DATA) {
+      await new Promise((r) => setTimeout(r, 500));
+      return { status: "success", fmu_id: "mock-fmu-ingest-001" };
+    }
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append(
@@ -37,6 +48,11 @@ export const agentService = {
    * Searches for similar memories and gets an Agent Decision
    */
   async searchFMU(file, sensors) {
+    if (USE_MOCK_DATA) {
+      await new Promise((r) => setTimeout(r, 1200));
+      return MOCK_SEARCH_RESULT;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append(
@@ -63,6 +79,24 @@ export const agentService = {
    * Queries the RAG/Agent via Text
    */
   async queryText(text) {
+    if (USE_MOCK_DATA) {
+      await new Promise((r) => setTimeout(r, 400));
+      const q = text.toLowerCase();
+      const filtered = MOCK_DASHBOARD.filter(
+        (d) =>
+          d.payload.crop?.toLowerCase().includes(q) ||
+          d.payload.stage?.toLowerCase().includes(q) ||
+          d.payload.crop_id?.toLowerCase().includes(q),
+      );
+      return {
+        status: "success",
+        results: (filtered.length ? filtered : MOCK_DASHBOARD).map((d) => ({
+          id: d.id,
+          payload: d.payload,
+        })),
+      };
+    }
+
     const formData = new FormData();
     formData.append("query", text);
     const res = await fetch(`${API_URL}/query-text`, {
@@ -76,6 +110,17 @@ export const agentService = {
    * Queries the RAG/Agent via Audio
    */
   async queryAudio(audioBlob) {
+    if (USE_MOCK_DATA) {
+      await new Promise((r) => setTimeout(r, 800));
+      return {
+        status: "success",
+        transcription: "show all lettuce crops",
+        results: MOCK_DASHBOARD.filter((d) => d.payload.crop === "Lettuce").map(
+          (d) => ({ id: d.id, score: 1, payload: d.payload }),
+        ),
+      };
+    }
+
     const formData = new FormData();
     formData.append("file", audioBlob, "recording.webm");
     const res = await fetch(`${API_URL}/query-audio`, {

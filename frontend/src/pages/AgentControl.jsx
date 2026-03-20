@@ -8,20 +8,19 @@ import {
   Wind,
   Sprout,
   Calendar,
-  Leaf,
   Database,
   Mic,
   Square,
-  Zap,
-  Fan,
-  FlaskConical,
-  Waves,
   Brain,
   ChevronDown,
   Eye,
 } from "lucide-react";
 import { agentService } from "../api/agentApi";
-import { extractSensors, formatOutcome } from "../utils/dataUtils";
+import { extractSensors } from "../utils/dataUtils";
+import {
+  AgentActionWidget,
+  AgentOutcomeWidget,
+} from "../components/AgentWidgets";
 import Sidebar from "../components/Sidebar";
 
 const INPUT_FIELDS = [
@@ -79,39 +78,6 @@ const INPUT_FIELDS = [
   },
 ];
 
-const ACTION_MAP = {
-  acid_dosage_ml: {
-    label: "Acid Dosage",
-    icon: FlaskConical,
-    unit: "ml",
-    color: "var(--red)",
-  },
-  base_dosage_ml: {
-    label: "Base Dosage",
-    icon: FlaskConical,
-    unit: "ml",
-    color: "#a78bfa",
-  },
-  nutrient_dosage_ml: {
-    label: "Nutrients",
-    icon: Sprout,
-    unit: "ml",
-    color: "var(--green)",
-  },
-  fan_speed_pct: {
-    label: "Fan Speed",
-    icon: Fan,
-    unit: "%",
-    color: "var(--blue)",
-  },
-  water_refill_l: {
-    label: "Water Refill",
-    icon: Waves,
-    unit: "L",
-    color: "var(--blue)",
-  },
-};
-
 export default function AgentControl() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -122,8 +88,8 @@ export default function AgentControl() {
   const [searchResults, setSearchResults] = useState([]);
   const [textQuery, setTextQuery] = useState("");
 
-  const [showExplanation, setShowExplanation] = useState(false);
-  const [explanationText, setExplanationText] = useState("");
+  const [showExplain, setShowExplain] = useState(false);
+  const [explanation, setExplanation] = useState("");
 
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
@@ -174,7 +140,7 @@ export default function AgentControl() {
     setDecision(null);
     try {
       const res = await agentService.searchFMU(file, sensors);
-      if (res.explanation) setExplanationText(res.explanation);
+      if (res.explanation) setExplanation(res.explanation);
       if (res.agent_decision) setDecision(res.agent_decision);
       setSearchResults(res.search_results || []);
     } catch {
@@ -267,7 +233,7 @@ export default function AgentControl() {
             zIndex: 50,
             padding: "10px 16px",
             borderRadius: 12,
-            fontSize: 12,
+            fontSize: 13,
             fontFamily: "DM Mono, monospace",
             background:
               toast.type === "error"
@@ -317,24 +283,8 @@ export default function AgentControl() {
             <Brain size={15} style={{ color: "var(--green)" }} />
           </div>
           <div>
-            <h1
-              style={{
-                fontWeight: 700,
-                fontSize: 15,
-                color: "var(--text)",
-                margin: 0,
-              }}
-            >
-              Agent Control
-            </h1>
-            <p
-              style={{
-                fontSize: 11,
-                fontFamily: "DM Mono, monospace",
-                color: "var(--text-3)",
-                margin: 0,
-              }}
-            >
+            <h1 className="page-title">Agent Control</h1>
+            <p className="page-subtitle">
               Ingest memories · Query the Supervisor · Run analysis
             </p>
           </div>
@@ -391,7 +341,7 @@ export default function AgentControl() {
                 background: "transparent",
                 border: "none",
                 outline: "none",
-                fontSize: 13,
+                fontSize: 14,
                 fontFamily: "DM Mono, monospace",
                 color: "var(--text)",
                 caretColor: "var(--green)",
@@ -400,7 +350,7 @@ export default function AgentControl() {
             <button
               onClick={handleTextQuery}
               style={{
-                padding: "6px 16px",
+                padding: "6px 18px",
                 borderRadius: 8,
                 fontSize: 13,
                 fontWeight: 600,
@@ -493,7 +443,7 @@ export default function AgentControl() {
                       <div
                         style={{
                           fontWeight: 600,
-                          fontSize: 13,
+                          fontSize: 14,
                           color: "var(--text-2)",
                         }}
                       >
@@ -501,7 +451,7 @@ export default function AgentControl() {
                       </div>
                       <div
                         style={{
-                          fontSize: 11,
+                          fontSize: 12,
                           marginTop: 4,
                           color: "var(--text-3)",
                         }}
@@ -586,16 +536,7 @@ export default function AgentControl() {
                 border: "1px solid var(--border)",
               }}
             >
-              <div
-                style={{
-                  fontSize: 10,
-                  fontFamily: "DM Mono, monospace",
-                  color: "var(--text-3)",
-                  marginBottom: 16,
-                }}
-              >
-                // SENSOR PARAMETERS
-              </div>
+              <div className="section-label">SENSOR PARAMETERS</div>
               <div
                 style={{
                   display: "grid",
@@ -614,17 +555,12 @@ export default function AgentControl() {
                     placeholder,
                   }) => (
                     <div key={name}>
-                      <label
-                        style={{
-                          fontSize: 10,
-                          fontFamily: "DM Mono, monospace",
-                          display: "block",
-                          marginBottom: 5,
-                          color,
-                        }}
+                      <div
+                        className="sensor-label"
+                        style={{ color, marginBottom: 5 }}
                       >
                         {label.toUpperCase()}
-                      </label>
+                      </div>
                       <div style={{ position: "relative" }}>
                         <Icon
                           size={12}
@@ -652,10 +588,10 @@ export default function AgentControl() {
                                 appearance: "none",
                                 paddingLeft: 30,
                                 paddingRight: 28,
-                                paddingTop: 8,
-                                paddingBottom: 8,
+                                paddingTop: 9,
+                                paddingBottom: 9,
                                 borderRadius: 8,
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontFamily: "DM Mono, monospace",
                                 background: "var(--bg-3)",
                                 border: "1px solid var(--border)",
@@ -695,10 +631,10 @@ export default function AgentControl() {
                               width: "100%",
                               paddingLeft: 30,
                               paddingRight: 10,
-                              paddingTop: 8,
-                              paddingBottom: 8,
+                              paddingTop: 9,
+                              paddingBottom: 9,
                               borderRadius: 8,
-                              fontSize: 12,
+                              fontSize: 13,
                               fontFamily: "DM Mono, monospace",
                               background: "var(--bg-3)",
                               border: "1px solid var(--border)",
@@ -741,8 +677,8 @@ export default function AgentControl() {
                   <Brain size={15} style={{ color: "var(--green)" }} />
                   <span
                     style={{
-                      fontWeight: 600,
-                      fontSize: 13,
+                      fontWeight: 700,
+                      fontSize: 15,
                       color: "var(--text)",
                     }}
                   >
@@ -750,14 +686,14 @@ export default function AgentControl() {
                   </span>
                 </div>
                 <button
-                  onClick={() => setShowExplanation(!showExplanation)}
+                  onClick={() => setShowExplain(!showExplain)}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontFamily: "DM Mono, monospace",
-                    padding: "5px 10px",
+                    padding: "5px 12px",
                     borderRadius: 8,
                     cursor: "pointer",
                     background: "var(--surface-2)",
@@ -765,86 +701,15 @@ export default function AgentControl() {
                     color: "var(--text-3)",
                   }}
                 >
-                  <Eye size={11} /> {showExplanation ? "Hide" : "View"} logic
+                  <Eye size={11} /> {showExplain ? "Hide" : "View"} logic
                 </button>
               </div>
 
-              <div
-                style={{
-                  padding: 20,
-                  display: "grid",
-                  gridTemplateColumns: "repeat(5, 1fr)",
-                  gap: 12,
-                }}
-              >
-                {Object.entries(decision).map(([key, value]) => {
-                  const meta = ACTION_MAP[key] || {
-                    label: key,
-                    icon: Zap,
-                    unit: "",
-                    color: "var(--text-3)",
-                  };
-                  const Icon = meta.icon;
-                  return (
-                    <div
-                      key={key}
-                      style={{
-                        borderRadius: 12,
-                        padding: 14,
-                        textAlign: "center",
-                        background: "var(--bg-3)",
-                        border: "1px solid var(--border)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 30,
-                          height: 30,
-                          borderRadius: 8,
-                          background: `${meta.color}15`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          margin: "0 auto 8px",
-                        }}
-                      >
-                        <Icon size={13} style={{ color: meta.color }} />
-                      </div>
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          fontFamily: "DM Mono, monospace",
-                          fontSize: 20,
-                          color: meta.color,
-                        }}
-                      >
-                        {value}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 9,
-                          fontFamily: "DM Mono, monospace",
-                          marginTop: 2,
-                          color: "var(--text-3)",
-                        }}
-                      >
-                        {meta.unit}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          marginTop: 4,
-                          color: "var(--text-3)",
-                        }}
-                      >
-                        {meta.label}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div style={{ padding: 20 }}>
+                <AgentActionWidget actionTaken={decision} compact={false} />
               </div>
 
-              {showExplanation && explanationText && (
+              {showExplain && explanation && (
                 <div
                   style={{
                     borderTop: "1px solid var(--border)",
@@ -852,27 +717,18 @@ export default function AgentControl() {
                     background: "var(--bg-3)",
                   }}
                 >
-                  <div
-                    style={{
-                      fontSize: 10,
-                      fontFamily: "DM Mono, monospace",
-                      color: "var(--text-3)",
-                      marginBottom: 8,
-                    }}
-                  >
-                    // SUPERVISOR REASONING
-                  </div>
+                  <div className="section-label">SUPERVISOR REASONING</div>
                   <pre
                     style={{
-                      fontSize: 11,
+                      fontSize: 12,
                       fontFamily: "DM Mono, monospace",
-                      lineHeight: 1.7,
+                      lineHeight: 1.8,
                       whiteSpace: "pre-wrap",
                       color: "var(--text-2)",
                       margin: 0,
                     }}
                   >
-                    {explanationText}
+                    {explanation}
                   </pre>
                 </div>
               )}
@@ -882,29 +738,13 @@ export default function AgentControl() {
           {/* Search results */}
           {searchResults.length > 0 && (
             <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 14,
-                }}
-              >
-                <Database size={13} style={{ color: "var(--text-3)" }} />
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontFamily: "DM Mono, monospace",
-                    color: "var(--text-3)",
-                  }}
-                >
-                  MEMORY MATCHES · {searchResults.length} FOUND
-                </span>
+              <div className="section-label">
+                MEMORY MATCHES · {searchResults.length} FOUND
               </div>
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gridTemplateColumns: "repeat(3,1fr)",
                   gap: 14,
                 }}
               >
@@ -915,8 +755,8 @@ export default function AgentControl() {
                       key={res.id}
                       className="card-hover"
                       style={{
-                        borderRadius: 12,
-                        padding: 14,
+                        borderRadius: 14,
+                        padding: 16,
                         background: "var(--surface)",
                         border: "1px solid var(--border)",
                       }}
@@ -926,32 +766,23 @@ export default function AgentControl() {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
-                          marginBottom: 10,
+                          marginBottom: 12,
                         }}
                       >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          <Leaf size={13} style={{ color: "var(--green)" }} />
-                          <span
-                            style={{
-                              fontWeight: 600,
-                              fontSize: 13,
-                              color: "var(--text)",
-                            }}
-                          >
-                            {res.payload.crop || "Unknown"}
-                          </span>
-                        </div>
                         <span
                           style={{
-                            fontSize: 10,
+                            fontWeight: 600,
+                            fontSize: 14,
+                            color: "var(--text)",
+                          }}
+                        >
+                          {res.payload.crop || "Unknown"}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 11,
                             fontFamily: "DM Mono, monospace",
-                            padding: "2px 6px",
+                            padding: "2px 7px",
                             borderRadius: 4,
                             background: "rgba(74,222,128,0.1)",
                             color: "var(--green)",
@@ -960,16 +791,28 @@ export default function AgentControl() {
                           {((res.score || 1) * 100).toFixed(0)}%
                         </span>
                       </div>
+
                       <div
                         style={{
                           display: "grid",
                           gridTemplateColumns: "1fr 1fr",
                           gap: 8,
+                          marginBottom: 12,
                         }}
                       >
                         {[
                           { label: "pH", value: s.ph, color: "var(--green)" },
                           { label: "EC", value: s.ec, color: "var(--amber)" },
+                          {
+                            label: "Temp",
+                            value: s.temp + "°",
+                            color: "var(--blue)",
+                          },
+                          {
+                            label: "RH",
+                            value: s.humidity + "%",
+                            color: "#a78bfa",
+                          },
                         ].map(({ label, value, color }) => (
                           <div
                             key={label}
@@ -981,38 +824,24 @@ export default function AgentControl() {
                             }}
                           >
                             <div
-                              style={{
-                                fontSize: 9,
-                                fontFamily: "DM Mono, monospace",
-                                color: "var(--text-3)",
-                              }}
+                              className="sensor-label"
+                              style={{ marginBottom: 2 }}
                             >
                               {label}
                             </div>
-                            <div
-                              style={{
-                                fontWeight: 700,
-                                fontFamily: "DM Mono, monospace",
-                                fontSize: 14,
-                                color,
-                              }}
-                            >
+                            <div className="sensor-value-sm" style={{ color }}>
                               {value}
                             </div>
                           </div>
                         ))}
                       </div>
+
+                      {/* Outcome badge */}
                       {res.payload.outcome && (
-                        <div
-                          style={{
-                            marginTop: 8,
-                            fontSize: 11,
-                            color: "var(--text-3)",
-                          }}
-                        >
-                          {formatOutcome(res.payload.outcome)?.substring(0, 80)}
-                          …
-                        </div>
+                        <AgentOutcomeWidget
+                          outcome={res.payload.outcome}
+                          rewardScore={res.payload.reward_score}
+                        />
                       )}
                     </div>
                   );

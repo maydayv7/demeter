@@ -37,17 +37,18 @@ const CustomTooltip = ({ active, payload, label }) => {
       style={{
         padding: "8px 12px",
         borderRadius: 8,
-        fontSize: 11,
+        fontSize: 12,
         fontFamily: "DM Mono, monospace",
-        background: "var(--surface-2)",
+        background: "var(--tooltip-bg)",
         border: "1px solid var(--border)",
         color: "var(--text)",
+        boxShadow: "var(--shadow)",
       }}
     >
       <div style={{ color: "var(--text-3)", marginBottom: 4 }}>{label}</div>
       {payload.map((p) => (
-        <div key={p.dataKey} style={{ color: p.color }}>
-          {p.name}: {p.value}
+        <div key={p.dataKey} style={{ color: p.color, marginTop: 2 }}>
+          {p.name}: <strong>{p.value}</strong>
         </div>
       ))}
     </div>
@@ -62,47 +63,34 @@ function MetricCard({ label, value, unit, change, color, loading }) {
     <div
       className="card-hover"
       style={{
-        borderRadius: 12,
-        padding: 20,
+        borderRadius: 14,
+        padding: "20px 22px",
         background: "var(--surface)",
         border: "1px solid var(--border)",
       }}
     >
-      <div
-        style={{
-          fontSize: 10,
-          fontFamily: "DM Mono, monospace",
-          color: "var(--text-3)",
-          marginBottom: 10,
-        }}
-      >
-        {label}
-      </div>
+      <div className="sensor-label">{label}</div>
       {loading ? (
         <div
           className="shimmer"
-          style={{ height: 32, width: 96, borderRadius: 6 }}
+          style={{ height: 36, width: 100, borderRadius: 6 }}
         />
       ) : (
         <div
           style={{
-            fontSize: 28,
-            fontWeight: 700,
-            fontFamily: "DM Mono, monospace",
-            color: color || "var(--text)",
+            display: "flex",
+            alignItems: "baseline",
+            gap: 4,
+            marginTop: 6,
           }}
         >
-          {value}
           <span
-            style={{
-              fontSize: 14,
-              fontWeight: 400,
-              marginLeft: 4,
-              color: "var(--text-3)",
-            }}
+            className="sensor-value"
+            style={{ color: color || "var(--text)" }}
           >
-            {unit}
+            {value}
           </span>
+          {unit && <span className="sensor-unit">{unit}</span>}
         </div>
       )}
       <div
@@ -110,8 +98,8 @@ function MetricCard({ label, value, unit, change, color, loading }) {
           display: "flex",
           alignItems: "center",
           gap: 4,
-          marginTop: 8,
-          fontSize: 11,
+          marginTop: 10,
+          fontSize: 12,
           fontFamily: "DM Mono, monospace",
         }}
       >
@@ -127,34 +115,26 @@ function MetricCard({ label, value, unit, change, color, loading }) {
             color: flat ? "var(--text-3)" : up ? "var(--green)" : "var(--red)",
           }}
         >
-          {Math.abs(change)}% vs prior period
+          {Math.abs(change)}% vs prior
         </span>
       </div>
     </div>
   );
 }
 
-function SectionTitle({ children, sub }) {
+function SectionHead({ label, title }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <div
-        style={{
-          fontSize: 10,
-          fontFamily: "DM Mono, monospace",
-          color: "var(--text-3)",
-        }}
-      >
-        // {sub}
-      </div>
+      <div className="section-label">{label}</div>
       <h2
         style={{
           fontWeight: 700,
-          fontSize: 15,
+          fontSize: 16,
           color: "var(--text)",
           margin: "4px 0 0",
         }}
       >
-        {children}
+        {title}
       </h2>
     </div>
   );
@@ -175,7 +155,7 @@ function EmptyChart({ height = 180, message = "No data yet" }) {
     >
       <span
         style={{
-          fontSize: 11,
+          fontSize: 12,
           fontFamily: "DM Mono, monospace",
           color: "var(--text-3)",
         }}
@@ -200,13 +180,11 @@ export default function Analytics() {
   // Latest fleet-wide averages
   const latestSensors = useMemo(() => {
     if (!dashboard.length) return { ph: 0, ec: 0, temp: 0 };
-    const sensors = dashboard.map((d) => extractSensors(d.payload));
+    const s = dashboard.map((d) => extractSensors(d.payload));
     return {
-      ph: parseFloat(avg(sensors.map((s) => parseFloat(s.ph) || 0)).toFixed(2)),
-      ec: parseFloat(avg(sensors.map((s) => parseFloat(s.ec) || 0)).toFixed(2)),
-      temp: parseFloat(
-        avg(sensors.map((s) => parseFloat(s.temp) || 0)).toFixed(1),
-      ),
+      ph: parseFloat(avg(s.map((x) => parseFloat(x.ph) || 0)).toFixed(2)),
+      ec: parseFloat(avg(s.map((x) => parseFloat(x.ec) || 0)).toFixed(2)),
+      temp: parseFloat(avg(s.map((x) => parseFloat(x.temp) || 0)).toFixed(1)),
     };
   }, [dashboard]);
 
@@ -217,10 +195,10 @@ export default function Analytics() {
       .slice(0, Math.floor(allPoints.length / 2))
       .map((p) => extractSensors(p.payload));
     return {
-      ph: parseFloat(avg(older.map((s) => parseFloat(s.ph) || 0)).toFixed(2)),
-      ec: parseFloat(avg(older.map((s) => parseFloat(s.ec) || 0)).toFixed(2)),
+      ph: parseFloat(avg(older.map((x) => parseFloat(x.ph) || 0)).toFixed(2)),
+      ec: parseFloat(avg(older.map((x) => parseFloat(x.ec) || 0)).toFixed(2)),
       temp: parseFloat(
-        avg(older.map((s) => parseFloat(s.temp) || 0)).toFixed(1),
+        avg(older.map((x) => parseFloat(x.temp) || 0)).toFixed(1),
       ),
     };
   }, [allPoints, latestSensors]);
@@ -228,8 +206,17 @@ export default function Analytics() {
   const activityData = useMemo(() => dailyCropActivity(allPoints), [allPoints]);
   const radarData = useMemo(() => buildRadar(allPoints), [allPoints]);
   const agentStats = useMemo(() => buildAgentStats(allPoints), [allPoints]);
+  const cropSummaryRows = useMemo(() => {
+    if (!dashboard?.length) return [];
+    return dashboard.map((item) => {
+      const p = item.payload || {};
+      const s = extractSensors(p);
+      return { p, s, key: p.crop_id || item.id };
+    });
+  }, [dashboard]);
 
-  // CSV export
+  const agentRows = agentStats;
+
   const handleExport = () => {
     if (!buckets.length) return;
     const header = "time,ph,ec,temp,humidity,entries";
@@ -276,24 +263,8 @@ export default function Analytics() {
           }}
         >
           <div>
-            <h1
-              style={{
-                fontWeight: 700,
-                fontSize: 18,
-                color: "var(--text)",
-                margin: 0,
-              }}
-            >
-              Analytics
-            </h1>
-            <p
-              style={{
-                fontSize: 11,
-                fontFamily: "DM Mono, monospace",
-                color: "var(--text-3)",
-                margin: 0,
-              }}
-            >
+            <h1 className="page-title">Analytics</h1>
+            <p className="page-subtitle">
               {loading
                 ? "Loading…"
                 : `${allPoints.length} data points across ${dashboard.length} crops`}
@@ -314,14 +285,13 @@ export default function Analytics() {
                 style={{
                   padding: "5px 12px",
                   borderRadius: 8,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontFamily: "DM Mono, monospace",
                   cursor: "pointer",
                   background:
                     range === r ? "rgba(74,222,128,0.12)" : "var(--surface)",
                   border: `1px solid ${range === r ? "rgba(74,222,128,0.3)" : "var(--border)"}`,
                   color: range === r ? "var(--green)" : "var(--text-3)",
-                  transition: "all 0.15s",
                 }}
               >
                 {r}
@@ -335,7 +305,7 @@ export default function Analytics() {
                 gap: 6,
                 padding: "5px 12px",
                 borderRadius: 8,
-                fontSize: 11,
+                fontSize: 12,
                 fontFamily: "DM Mono, monospace",
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
@@ -359,11 +329,11 @@ export default function Analytics() {
             gap: 28,
           }}
         >
-          {/* Metric cards */}
+          {/* Metric Cards */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(4,1fr)",
               gap: 12,
             }}
           >
@@ -404,7 +374,7 @@ export default function Analytics() {
             />
           </div>
 
-          {/* pH + EC */}
+          {/* pH + EC Charts */}
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
           >
@@ -427,15 +397,16 @@ export default function Analytics() {
               <div
                 key={key}
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 14,
                   padding: 20,
                   background: "var(--surface)",
                   border: "1px solid var(--border)",
                 }}
               >
-                <SectionTitle sub={`${range.toUpperCase()} TRACE`}>
-                  {title}
-                </SectionTitle>
+                <SectionHead
+                  label={`${range.toUpperCase()} TRACE`}
+                  title={title}
+                />
                 {buckets.length < 2 ? (
                   <EmptyChart message="Not enough data for this range" />
                 ) : (
@@ -463,7 +434,7 @@ export default function Analytics() {
                       <XAxis
                         dataKey="label"
                         tick={{
-                          fontSize: 9,
+                          fontSize: 10,
                           fill: "var(--text-3)",
                           fontFamily: "DM Mono",
                         }}
@@ -474,7 +445,7 @@ export default function Analytics() {
                       <YAxis
                         domain={["auto", "auto"]}
                         tick={{
-                          fontSize: 9,
+                          fontSize: 10,
                           fill: "var(--text-3)",
                           fontFamily: "DM Mono",
                         }}
@@ -501,15 +472,16 @@ export default function Analytics() {
           {/* Temp + Humidity */}
           <div
             style={{
-              borderRadius: 12,
+              borderRadius: 14,
               padding: 20,
               background: "var(--surface)",
               border: "1px solid var(--border)",
             }}
           >
-            <SectionTitle sub={`${range.toUpperCase()} TRACE`}>
-              Temperature & Humidity
-            </SectionTitle>
+            <SectionHead
+              label={`${range.toUpperCase()} TRACE`}
+              title="Temperature & Humidity"
+            />
             {buckets.length < 2 ? (
               <EmptyChart message="Not enough data for this range" />
             ) : (
@@ -523,7 +495,7 @@ export default function Analytics() {
                   <XAxis
                     dataKey="label"
                     tick={{
-                      fontSize: 9,
+                      fontSize: 10,
                       fill: "var(--text-3)",
                       fontFamily: "DM Mono",
                     }}
@@ -535,7 +507,7 @@ export default function Analytics() {
                     yAxisId="left"
                     domain={["auto", "auto"]}
                     tick={{
-                      fontSize: 9,
+                      fontSize: 10,
                       fill: "var(--text-3)",
                       fontFamily: "DM Mono",
                     }}
@@ -547,7 +519,7 @@ export default function Analytics() {
                     orientation="right"
                     domain={["auto", "auto"]}
                     tick={{
-                      fontSize: 9,
+                      fontSize: 10,
                       fill: "var(--text-3)",
                       fontFamily: "DM Mono",
                     }}
@@ -584,15 +556,16 @@ export default function Analytics() {
           >
             <div
               style={{
-                borderRadius: 12,
+                borderRadius: 14,
                 padding: 20,
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
               }}
             >
-              <SectionTitle sub="DAILY ACTIVITY">
-                Sequences Logged per Day
-              </SectionTitle>
+              <SectionHead
+                label="DAILY ACTIVITY"
+                title="Sequences Logged per Day"
+              />
               {activityData.length < 2 ? (
                 <EmptyChart height={180} message="Need 2+ days of data" />
               ) : (
@@ -606,7 +579,7 @@ export default function Analytics() {
                     <XAxis
                       dataKey="d"
                       tick={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fill: "var(--text-3)",
                         fontFamily: "DM Mono",
                       }}
@@ -615,7 +588,7 @@ export default function Analytics() {
                     />
                     <YAxis
                       tick={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fill: "var(--text-3)",
                         fontFamily: "DM Mono",
                       }}
@@ -637,15 +610,16 @@ export default function Analytics() {
 
             <div
               style={{
-                borderRadius: 12,
+                borderRadius: 14,
                 padding: 20,
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
               }}
             >
-              <SectionTitle sub="PARAMETER HEALTH">
-                In-Range Score (%)
-              </SectionTitle>
+              <SectionHead
+                label="PARAMETER HEALTH"
+                title="In-Range Score (%)"
+              />
               {radarData.length < 2 ? (
                 <EmptyChart height={180} message="Not enough data points" />
               ) : (
@@ -660,7 +634,7 @@ export default function Analytics() {
                     <PolarAngleAxis
                       dataKey="metric"
                       tick={{
-                        fontSize: 9,
+                        fontSize: 11,
                         fill: "var(--text-3)",
                         fontFamily: "DM Mono",
                       }}
@@ -679,31 +653,28 @@ export default function Analytics() {
             </div>
           </div>
 
-          {/* Crop summary table */}
+          {/* Crop Summary Table */}
           <div
             style={{
-              borderRadius: 12,
+              borderRadius: 14,
               overflow: "hidden",
               background: "var(--surface)",
               border: "1px solid var(--border)",
             }}
           >
             <div
-              style={{ padding: 20, borderBottom: "1px solid var(--border)" }}
+              style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid var(--border)",
+              }}
             >
-              <SectionTitle sub="PER CROP">Latest Sensor Summary</SectionTitle>
+              <SectionHead label="PER CROP" title="Latest Sensor Summary" />
             </div>
             {loading ? (
-              <div
-                style={{
-                  padding: 32,
-                  display: "flex",
-                  justifyContent: "center",
-                }}
-              >
+              <div style={{ padding: 32, textAlign: "center" }}>
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     fontFamily: "DM Mono, monospace",
                     color: "var(--text-3)",
                   }}
@@ -711,28 +682,25 @@ export default function Analytics() {
                   Loading…
                 </span>
               </div>
-            ) : dashboard.length === 0 ? (
+            ) : cropSummaryRows.length === 0 ? (
               <div
                 style={{
                   padding: 32,
                   textAlign: "center",
-                  fontSize: 11,
+                  fontSize: 12,
                   fontFamily: "DM Mono, monospace",
                   color: "var(--text-3)",
                 }}
               >
-                No crops in database
+                No crops found in database
               </div>
             ) : (
               <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: 12,
-                }}
+                className="data-table"
+                style={{ width: "100%", borderCollapse: "collapse" }}
               >
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  <tr>
                     {[
                       "Crop ID",
                       "Type",
@@ -742,245 +710,223 @@ export default function Analytics() {
                       "Temp",
                       "Sequences",
                     ].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          padding: "10px 20px",
-                          textAlign: "left",
-                          fontSize: 10,
-                          fontFamily: "DM Mono, monospace",
-                          color: "var(--text-3)",
-                          fontWeight: 400,
-                        }}
-                      >
-                        {h}
-                      </th>
+                      <th key={h}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {dashboard.map((item, i) => {
-                    const p = item.payload || {};
-                    const s = extractSensors(p);
-                    return (
-                      <tr
-                        key={i}
-                        style={{ borderBottom: "1px solid var(--border)" }}
-                      >
-                        <td
-                          style={{
-                            padding: "10px 20px",
-                            fontFamily: "DM Mono, monospace",
-                            fontSize: 11,
-                            color: "var(--text)",
-                          }}
-                        >
-                          {p.crop_id || "—"}
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 20px",
-                            fontFamily: "DM Mono, monospace",
-                            fontSize: 11,
-                            color: "var(--text-2)",
-                          }}
-                        >
-                          {p.crop || "—"}
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 20px",
-                            fontFamily: "DM Mono, monospace",
-                            fontSize: 11,
-                            color: "var(--text-2)",
-                          }}
-                        >
-                          {p.stage || "—"}
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 20px",
-                            fontFamily: "DM Mono, monospace",
-                            fontSize: 11,
-                            color: "var(--green)",
-                          }}
-                        >
-                          {s.ph}
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 20px",
-                            fontFamily: "DM Mono, monospace",
-                            fontSize: 11,
-                            color: "var(--amber)",
-                          }}
-                        >
-                          {s.ec}
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 20px",
-                            fontFamily: "DM Mono, monospace",
-                            fontSize: 11,
-                            color: "var(--blue)",
-                          }}
-                        >
-                          {s.temp}°C
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 20px",
-                            fontFamily: "DM Mono, monospace",
-                            fontSize: 11,
-                            color: "var(--text-2)",
-                          }}
-                        >
-                          {p.sequence_number || 1}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Agent activity */}
-          {agentStats.length > 0 && (
-            <div
-              style={{
-                borderRadius: 12,
-                overflow: "hidden",
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              <div
-                style={{ padding: 20, borderBottom: "1px solid var(--border)" }}
-              >
-                <SectionTitle sub="DERIVED FROM STORED ACTIONS">
-                  Agent Activity
-                </SectionTitle>
-              </div>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: 12,
-                }}
-              >
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    {[
-                      "Agent",
-                      "Appearances in Log",
-                      "Success Rate",
-                      "Status",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          padding: "10px 20px",
-                          textAlign: "left",
-                          fontSize: 10,
-                          fontFamily: "DM Mono, monospace",
-                          color: "var(--text-3)",
-                          fontWeight: 400,
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {agentStats.map(({ name, decisions, accuracy }) => (
+                  {cropSummaryRows.map(({ p, s, key }) => (
                     <tr
-                      key={name}
-                      style={{ borderBottom: "1px solid var(--border)" }}
+                      key={key}
+                      style={{ transition: "background 0.12s" }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = "var(--bg-3)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
                     >
                       <td
                         style={{
-                          padding: "10px 20px",
                           fontFamily: "DM Mono, monospace",
-                          fontSize: 11,
+                          fontSize: 12,
                           color: "var(--text)",
+                          fontWeight: 600,
                         }}
                       >
-                        {name}
+                        {p.crop_id || "—"}
+                      </td>
+                      <td>{p.crop || "—"}</td>
+                      <td
+                        style={{
+                          color: "var(--text-3)",
+                          fontSize: 12,
+                          fontFamily: "DM Mono, monospace",
+                        }}
+                      >
+                        {p.stage || "—"}
+                      </td>
+                      <td>
+                        <span
+                          className="sensor-value-xs"
+                          style={{ color: "var(--green)" }}
+                        >
+                          {s.ph}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className="sensor-value-xs"
+                          style={{ color: "var(--amber)" }}
+                        >
+                          {s.ec}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "var(--text-3)",
+                            marginLeft: 3,
+                          }}
+                        >
+                          dS/m
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className="sensor-value-xs"
+                          style={{ color: "var(--blue)" }}
+                        >
+                          {s.temp}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "var(--text-3)",
+                            marginLeft: 2,
+                          }}
+                        >
+                          °C
+                        </span>
                       </td>
                       <td
                         style={{
-                          padding: "10px 20px",
                           fontFamily: "DM Mono, monospace",
-                          fontSize: 11,
+                          fontSize: 13,
                           color: "var(--text-2)",
                         }}
                       >
-                        {decisions}
-                      </td>
-                      <td style={{ padding: "10px 20px" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <div
-                            style={{
-                              height: 6,
-                              width: 96,
-                              borderRadius: 3,
-                              background: "var(--border)",
-                            }}
-                          >
-                            <div
-                              style={{
-                                height: "100%",
-                                borderRadius: 3,
-                                width: `${accuracy}%`,
-                                background:
-                                  accuracy > 80
-                                    ? "var(--green)"
-                                    : accuracy > 50
-                                      ? "var(--amber)"
-                                      : "var(--red)",
-                              }}
-                            />
-                          </div>
-                          <span
-                            style={{
-                              fontFamily: "DM Mono, monospace",
-                              fontSize: 11,
-                              color: "var(--text-2)",
-                            }}
-                          >
-                            {accuracy}%
-                          </span>
-                        </div>
-                      </td>
-                      <td style={{ padding: "10px 20px" }}>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontFamily: "DM Mono, monospace",
-                            padding: "3px 8px",
-                            borderRadius: 20,
-                            background: "rgba(74,222,128,0.1)",
-                            color: "var(--green)",
-                            border: "1px solid rgba(74,222,128,0.2)",
-                          }}
-                        >
-                          ONLINE
-                        </span>
+                        {p.sequence_number || 1}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            )}
+          </div>
+
+          {/* Agent Activity Table */}
+          <div
+            style={{
+              borderRadius: 14,
+              overflow: "hidden",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div
+              style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid var(--border)",
+              }}
+            >
+              <SectionHead
+                label="DERIVED FROM STORED ACTIONS"
+                title="Agent Activity"
+              />
             </div>
-          )}
+            <table
+              className="data-table"
+              style={{ width: "100%", borderCollapse: "collapse" }}
+            >
+              <thead>
+                <tr>
+                  {["Agent", "Appearances", "Success Rate", "Status"].map(
+                    (h) => (
+                      <th key={h}>{h}</th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {agentRows.map(({ name, decisions, accuracy }) => (
+                  <tr
+                    key={name}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "var(--bg-3)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                    style={{ transition: "background 0.12s" }}
+                  >
+                    <td
+                      style={{
+                        fontFamily: "DM Mono, monospace",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {name}
+                    </td>
+                    <td
+                      style={{ fontFamily: "DM Mono, monospace", fontSize: 13 }}
+                    >
+                      {decisions}
+                    </td>
+                    <td>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: 6,
+                            width: 100,
+                            borderRadius: 3,
+                            background: "var(--border)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: "100%",
+                              borderRadius: 3,
+                              width: `${accuracy}%`,
+                              background:
+                                accuracy > 80
+                                  ? "var(--green)"
+                                  : accuracy > 50
+                                    ? "var(--amber)"
+                                    : "var(--red)",
+                              transition: "width 0.6s ease",
+                            }}
+                          />
+                        </div>
+                        <span
+                          style={{
+                            fontFamily: "DM Mono, monospace",
+                            fontSize: 13,
+                            color: "var(--text-2)",
+                            minWidth: 36,
+                          }}
+                        >
+                          {accuracy}%
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontFamily: "DM Mono, monospace",
+                          padding: "3px 10px",
+                          borderRadius: 20,
+                          background: "rgba(74,222,128,0.1)",
+                          color: "var(--green)",
+                          border: "1px solid rgba(74,222,128,0.2)",
+                        }}
+                      >
+                        ONLINE
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>

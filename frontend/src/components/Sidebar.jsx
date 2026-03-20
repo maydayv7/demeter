@@ -12,11 +12,13 @@ import {
 } from "lucide-react";
 import { useFarmData } from "../hooks/useFarmData";
 import { deriveCropStatus } from "../utils/dataUtils";
+import { useSettings } from "../hooks/useSettings";
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const loc = useLocation();
   const { dashboard } = useFarmData();
+  const { settings } = useSettings();
 
   const alertCount = useMemo(() => {
     if (!dashboard?.length) return 0;
@@ -31,8 +33,17 @@ export default function Sidebar() {
     { label: "Analytics", icon: BarChart3, path: "/analytics" },
     { label: "Alerts", icon: Bell, path: "/alerts", badge: alertCount || null },
     { label: "Agent AI", icon: Brain, path: "/control" },
-    { label: "Settings", icon: Settings, path: "#" },
+    { label: "Settings", icon: Settings, path: "/settings" },
   ];
+
+  const initials =
+    settings.userInitials ||
+    (settings.userName || "?")
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
 
   return (
     <aside
@@ -80,7 +91,7 @@ export default function Sidebar() {
             <div
               style={{
                 fontWeight: 700,
-                fontSize: 14,
+                fontSize: 15,
                 color: "var(--text)",
                 lineHeight: 1.2,
               }}
@@ -119,13 +130,7 @@ export default function Sidebar() {
           justifyContent: "center",
           cursor: "pointer",
           zIndex: 10,
-          transition: "background 0.15s",
         }}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.background = "var(--surface-2)")
-        }
-        onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-3)")}
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {collapsed ? <ChevronRight size={11} /> : <ChevronLeft size={11} />}
       </button>
@@ -241,7 +246,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Alert count summary */}
+      {/* Alert status summary */}
       {!collapsed && (
         <div style={{ padding: "0 12px 12px" }}>
           <div
@@ -253,13 +258,8 @@ export default function Sidebar() {
             }}
           >
             <div
-              style={{
-                fontSize: 9,
-                fontFamily: "DM Mono, monospace",
-                color: "var(--text-3)",
-                marginBottom: 6,
-                letterSpacing: "0.05em",
-              }}
+              className="section-label"
+              style={{ margin: 0, marginBottom: 6, fontSize: 9 }}
             >
               ALERT STATUS
             </div>
@@ -328,7 +328,7 @@ export default function Sidebar() {
             width: 28,
             height: 28,
             borderRadius: "50%",
-            background: "var(--amber-dim)",
+            background: "rgba(245,158,11,0.15)",
             color: "var(--amber)",
             display: "flex",
             alignItems: "center",
@@ -338,17 +338,17 @@ export default function Sidebar() {
             flexShrink: 0,
           }}
         >
-          R
+          {initials}
         </div>
         {!collapsed && (
           <div>
             <div
               style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}
             >
-              Rajesh Rai
+              {settings.userName}
             </div>
             <div style={{ fontSize: 10, color: "var(--text-3)" }}>
-              Farm Owner
+              {settings.userDesignation}
             </div>
           </div>
         )}
