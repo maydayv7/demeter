@@ -258,7 +258,7 @@ python main.py
 
 ### 6. Start the Agents
 
-Download [model_bandit_greedy.pkl](https://drive.google.com/file/d/1spuw3TogZRtP0fYZkYA2Kxz1-CiUzBDA/view?usp=drive_link) and [plant_disease_model.pt](https://drive.google.com/file/d/1NkdGt0CFS7tx4vttp8Tod8ksjDLib8dp/view?usp=drive_link) and place them under `agent/Marl` and `agent/Marl/model` respectively.
+Download [model_bandit_greedy.pkl](https://drive.google.com/file/d/1spuw3TogZRtP0fYZkYA2Kxz1-CiUzBDA/view?usp=drive_link) and [plant_disease_model.pt](https://drive.google.com/file/d/1NkdGt0CFS7tx4vttp8Tod8ksjDLib8dp/view?usp=drive_link) and place them under `agent/Marl` and `agent/model` respectively.
 
 Open a new terminal, activate the virtual environment, and start the agent orchestrator from the agent directory:
 
