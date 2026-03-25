@@ -30,8 +30,8 @@ export default function Sidebar() {
 
   const NAV = [
     { label: "Crops", icon: LayoutGrid, path: "/dashboard" },
-    { label: "Analytics", icon: BarChart3, path: "/analytics" },
     { label: "Alerts", icon: Bell, path: "/alerts", badge: alertCount || null },
+    { label: "Analytics", icon: BarChart3, path: "/analytics" },
     { label: "Intelligence", icon: Sparkles, path: "/intelligence" },
     { label: "Settings", icon: Settings, path: "/settings" },
   ];

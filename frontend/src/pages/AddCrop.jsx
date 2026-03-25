@@ -818,7 +818,7 @@ export default function AddCrop() {
                   </>
                 ) : (
                   <>
-                    <Play size={15} fill="currentColor" /> Start Agent Cycle
+                    <Play size={15} fill="currentColor" /> Start Monitoring
                   </>
                 )}
               </button>

@@ -397,26 +397,39 @@ async def process_cycle_stream(file: UploadFile, sensors_str: str, builder):
 
 def extract_json(text):
     """
-    Robustly extracts the first valid JSON object from a text string.
+    Robustly extracts the first valid JSON object from text string.
     """
-    try:
-        # 1. Try finding content inside ```json ... ```
-        match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if match:
-            return json.loads(match.group(1))
+    # Strip <think>...</think> blocks FIRST — reasoning models emit these before the answer
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
-        # 2. Try finding content inside plain ``` ... ```
-        match = re.search(r"```\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if match:
-            return json.loads(match.group(1))
+    for source in (cleaned, text):  # fall back to raw text if stripping broke something
+        try:
+            # 1. Try direct parse (model returned only JSON)
+            return json.loads(source)
+        except Exception:
+            pass
 
-        # 3. Fallback: Find the first outermost { ... }
-        match = re.search(r"(\{.*\})", text, re.DOTALL)
-        if match:
-            return json.loads(match.group(1))
+        try:
+            # 2. Try finding content inside ```json ... ```
+            match = re.search(r"```json\s*(\{.*?\})\s*```", source, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
 
-    except Exception:
-        pass
+            # 3. Try finding content inside plain ``` ... ```
+            match = re.search(r"```\s*(\{.*?\})\s*```", source, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
+
+            # 4. Fallback: Find the LAST outermost { ... } (avoids grabbing think-block JSON)
+            matches = list(
+                re.finditer(r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)?\})", source, re.DOTALL)
+            )
+            if matches:
+                return json.loads(matches[-1].group(1))
+
+        except Exception:
+            pass
+
     return {}
 
 

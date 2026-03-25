@@ -77,6 +77,7 @@ export const agentService = {
 
   /**
    * Queries the RAG/Agent via Text
+   * Returns: { status, results, query_logic }
    */
   async queryText(text) {
     if (USE_MOCK_DATA) {
@@ -88,12 +89,17 @@ export const agentService = {
           d.payload.stage?.toLowerCase().includes(q) ||
           d.payload.crop_id?.toLowerCase().includes(q),
       );
+      const results = filtered.length ? filtered : MOCK_DASHBOARD;
       return {
         status: "success",
-        results: (filtered.length ? filtered : MOCK_DASHBOARD).map((d) => ({
+        results: results.map((d) => ({
           id: d.id,
+          score: Math.random() * 0.3 + 0.7,
           payload: d.payload,
         })),
+        query_logic: {
+          must: q ? [{ key: "crop", match: q }] : [],
+        },
       };
     }
 
