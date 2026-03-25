@@ -1,4 +1,5 @@
 import { useRef, useState, useMemo, useEffect } from "react";
+import { useT } from "../hooks/useTranslation";
 import {
   Activity,
   Mic,
@@ -18,42 +19,37 @@ import {
   ChevronDown,
   Leaf,
   X,
-  Cpu,
   GitBranch,
-  Zap,
-  BarChart2,
 } from "lucide-react";
 import { agentService } from "../api/agentApi";
-import { extractSensors } from "../utils/dataUtils";
+import { extractSensors, deriveCropStatus } from "../utils/dataUtils";
 import {
   AgentActionWidget,
   AgentOutcomeWidget,
 } from "../components/AgentWidgets";
 import Sidebar from "../components/Sidebar";
 import { useFarmData } from "../hooks/useFarmData";
-import { deriveCropStatus } from "../utils/dataUtils";
 
 // Suggestion banks
-const GLOBAL_SUGGESTIONS = [
-  "Show all crops",
-  "Which crops are critical?",
-  "Find crops in flowering stage",
-  "List recent negative outcomes",
-  "Show Tomato batches",
-  "Find crops with high EC",
+const getGlobalSuggestions = (t) => [
+  t("sug_g1"),
+  t("sug_g2"),
+  t("sug_g3"),
+  t("sug_g4"),
+  t("sug_g5"),
+  t("sug_g6"),
 ];
-
-const CROP_SUGGESTIONS = (crop, cropId) => [
-  `Why did we take the last decision for ${crop}?`,
-  `Explain the current action for ${cropId}`,
-  `Is ${crop} performing well?`,
-  `What should I watch out for with ${crop}?`,
-  `How has ${crop} been trending lately?`,
-  `Compare ${crop} to similar crops`,
+const getCropSuggestions = (crop, t) => [
+  t("sug_c1", { crop }),
+  t("sug_c2", { crop }),
+  t("sug_c3", { crop }),
+  t("sug_c4", { crop }),
+  t("sug_c5", { crop }),
+  t("sug_c6", { crop }),
 ];
 
 // Thinking block renderer
-function ThinkingBlock({ text }) {
+function ThinkingBlock({ text, t }) {
   const [open, setOpen] = useState(false);
   if (!text) return null;
   return (
@@ -89,7 +85,7 @@ function ThinkingBlock({ text }) {
             flex: 1,
           }}
         >
-          THINKING PROCESS {open ? "▲" : "▼"}
+          {t("intel_thinking")} {open ? "▲" : "▼"}
         </span>
         <span
           style={{
@@ -98,7 +94,7 @@ function ThinkingBlock({ text }) {
             color: "var(--text-3)",
           }}
         >
-          {text.split("\n").filter(Boolean).length} steps
+          {t("intel_steps", { n: text.split("\n").filter(Boolean).length })}
         </span>
       </button>
       {open && (
@@ -127,7 +123,7 @@ function ThinkingBlock({ text }) {
 }
 
 // LLM Answer block
-function LLMAnswerBlock({ answer, thinking, query, cropContext }) {
+function LLMAnswerBlock({ answer, thinking, query, cropContext, t, td }) {
   if (!answer) return null;
 
   return (
@@ -175,7 +171,7 @@ function LLMAnswerBlock({ answer, thinking, query, cropContext }) {
               fontWeight: 600,
             }}
           >
-            DEMETER INTELLIGENCE
+            {t("intel_demeter")}
           </div>
           {cropContext && (
             <div
@@ -186,7 +182,8 @@ function LLMAnswerBlock({ answer, thinking, query, cropContext }) {
                 marginTop: 1,
               }}
             >
-              Context: {cropContext.crop} · {cropContext.cropId}
+              {t("intel_context")}: {td(cropContext.crop)} ·{" "}
+              {cropContext.cropId}
             </div>
           )}
         </div>
@@ -201,15 +198,12 @@ function LLMAnswerBlock({ answer, thinking, query, cropContext }) {
             border: "1px solid var(--border)",
           }}
         >
-          {cropContext ? "CROP-AWARE" : "FLEET-WIDE"}
+          {cropContext ? t("intel_crop_aware") : t("intel_fleet_wide")}
         </div>
       </div>
 
       <div style={{ padding: 18 }}>
-        {/* Thinking */}
-        <ThinkingBlock text={thinking} />
-
-        {/* Answer */}
+        <ThinkingBlock text={thinking} t={t} />
         <div
           style={{
             fontSize: 13,
@@ -227,7 +221,7 @@ function LLMAnswerBlock({ answer, thinking, query, cropContext }) {
 }
 
 // Related crops card
-function RelatedCropCard({ item, score }) {
+function RelatedCropCard({ item, score, t, td }) {
   const p = item.payload || {};
   const s = extractSensors(p);
   const status = deriveCropStatus(p);
@@ -267,7 +261,7 @@ function RelatedCropCard({ item, score }) {
       >
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>
-            {p.crop || "Unknown"}
+            {td(p.crop) || t("common_unknown")}
           </div>
           <div
             style={{
@@ -299,7 +293,7 @@ function RelatedCropCard({ item, score }) {
               border: `1px solid ${statusColor}30`,
             }}
           >
-            {status.toUpperCase()}
+            {td(status.toUpperCase())}
           </span>
           {score !== undefined && (
             <span
@@ -309,7 +303,7 @@ function RelatedCropCard({ item, score }) {
                 color: scoreColor,
               }}
             >
-              {(score * 100).toFixed(0)}% match
+              {t("intel_match", { n: (score * 100).toFixed(0) })}
             </span>
           )}
         </div>
@@ -367,7 +361,7 @@ function RelatedCropCard({ item, score }) {
 }
 
 // Main insight card (search results)
-function InsightCard({ result, idx }) {
+function InsightCard({ result, idx, t, td }) {
   const p = result.payload || {};
   const s = extractSensors(p);
   const status = deriveCropStatus(p);
@@ -413,7 +407,7 @@ function InsightCard({ result, idx }) {
       >
         <div>
           <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>
-            {p.crop || "Unknown"}
+            {td(p.crop) || t("common_unknown")}
           </div>
           <div
             style={{
@@ -445,7 +439,7 @@ function InsightCard({ result, idx }) {
               border: `1px solid ${sc.border}`,
             }}
           >
-            {status.toUpperCase()}
+            {td(status.toUpperCase())}
           </span>
           {p.stage && (
             <span
@@ -459,7 +453,7 @@ function InsightCard({ result, idx }) {
                 border: "1px solid var(--border)",
               }}
             >
-              {p.stage}
+              {td(p.stage)}
             </span>
           )}
         </div>
@@ -536,7 +530,7 @@ function InsightCard({ result, idx }) {
             className="section-label"
             style={{ fontSize: 9, marginBottom: 8 }}
           >
-            LAST COMMAND
+            {t("intel_last_cmd")}
           </div>
           <AgentActionWidget actionTaken={p.action_taken} compact />
         </div>
@@ -597,7 +591,7 @@ function FleetStat({ label, value, color, icon: Icon }) {
 }
 
 // Crop selector dropdown
-function CropSelector({ crops, selectedCrop, onSelect, onClear }) {
+function CropSelector({ crops, selectedCrop, onSelect, onClear, t, td }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -642,8 +636,8 @@ function CropSelector({ crops, selectedCrop, onSelect, onClear }) {
             }}
           >
             {selectedCrop
-              ? `${selectedCrop.crop} · ${selectedCrop.cropId}`
-              : "All Crops"}
+              ? `${td(selectedCrop.crop)} · ${selectedCrop.cropId}`
+              : t("intel_all_crops_filter")}
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -696,7 +690,7 @@ function CropSelector({ crops, selectedCrop, onSelect, onClear }) {
                 color: "var(--text-3)",
               }}
             >
-              SELECT CROP — {crops.length} available
+              {t("intel_select_crop", { n: crops.length })}
             </div>
           </div>
 
@@ -736,10 +730,10 @@ function CropSelector({ crops, selectedCrop, onSelect, onClear }) {
                     color: "var(--text-2)",
                   }}
                 >
-                  All Crops
+                  {t("intel_all_crops_filter")}
                 </div>
                 <div style={{ fontSize: 10, color: "var(--text-3)" }}>
-                  Fleet-wide query
+                  {t("intel_fleet_query")}
                 </div>
               </div>
             </div>
@@ -798,7 +792,7 @@ function CropSelector({ crops, selectedCrop, onSelect, onClear }) {
                         fontWeight: isSelected ? 700 : 400,
                       }}
                     >
-                      {c.crop}
+                      {td(c.crop)}
                     </div>
                     <div
                       style={{
@@ -808,7 +802,7 @@ function CropSelector({ crops, selectedCrop, onSelect, onClear }) {
                         marginTop: 1,
                       }}
                     >
-                      {c.cropId} · {c.stage}
+                      {c.cropId} · {td(c.stage)}
                     </div>
                   </div>
                   <span
@@ -818,7 +812,7 @@ function CropSelector({ crops, selectedCrop, onSelect, onClear }) {
                       color: statusColor,
                     }}
                   >
-                    {c.status.toUpperCase()}
+                    {td(c.status.toUpperCase())}
                   </span>
                 </div>
               );
@@ -832,6 +826,7 @@ function CropSelector({ crops, selectedCrop, onSelect, onClear }) {
 
 // MAIN
 export default function FarmIntelligence() {
+  const { t, td, lang } = useT();
   const [textQuery, setTextQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
@@ -856,13 +851,13 @@ export default function FarmIntelligence() {
   const cropList = useMemo(() => {
     if (!dashboard?.length) return [];
     return dashboard.map((d) => ({
-      crop: d.payload?.crop || "Unknown",
+      crop: d.payload?.crop || t("common_unknown"),
       cropId: d.payload?.crop_id || d.id,
       stage: d.payload?.stage || "",
       status: deriveCropStatus(d.payload),
       payload: d.payload,
     }));
-  }, [dashboard]);
+  }, [dashboard, t]);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -888,39 +883,27 @@ export default function FarmIntelligence() {
       // Specific crop context
       const p = cropCtx.payload || {};
       const sensors = extractSensors(p);
-
-      // Find history from dashboard for same cropId
-      const cropDashboardItems = (dashboard || []).filter(
-        (d) => d.payload?.crop_id === cropCtx.cropId,
-      );
-
-      return `
-CROP CONTEXT:
+      return `CROP CONTEXT:
 - Crop: ${p.crop || cropCtx.crop}
 - Batch ID: ${p.crop_id || cropCtx.cropId}
 - Growth Stage: ${p.stage || "Unknown"}
 - Sequence Number: ${p.sequence_number || "—"}
 - Last Updated: ${p.timestamp ? new Date(p.timestamp).toLocaleString() : "Unknown"}
-
 LATEST SENSOR READINGS:
 - pH: ${sensors.ph}
 - EC: ${sensors.ec} dS/m
 - Temperature: ${sensors.temp}°C
 - Humidity: ${sensors.humidity}%
-
 LATEST AGENT DECISION:
 - Action Taken: ${p.action_taken && p.action_taken !== "PENDING_ACTION" ? p.action_taken : "None recorded"}
 - Outcome: ${p.outcome && p.outcome !== "PENDING_OBSERVATION" ? p.outcome : "Pending"}
 - Reward Score: ${p.reward_score ?? "N/A"}
 - Strategic Intent: ${p.strategic_intent || "N/A"}
-
-EXPLANATION LOG (AI Decision Reasoning):
+EXPLANATION LOG:
 ${p.explanation_log && p.explanation_log !== "PENDING_ANALYSIS" ? p.explanation_log : "Not yet generated."}
-
 FLEET OVERVIEW (for comparison):
 - Total crops: ${fleetStats.total}
-- Healthy: ${fleetStats.healthy}, Needs Attention: ${fleetStats.attention}, Critical: ${fleetStats.critical}
-`.trim();
+- Healthy: ${fleetStats.healthy}, Needs Attention: ${fleetStats.attention}, Critical: ${fleetStats.critical}`.trim();
     } else {
       // Fleet-wide context
       const cropSummaries = (dashboard || [])
@@ -931,17 +914,12 @@ FLEET OVERVIEW (for comparison):
           return `  - ${p.crop || "?"} (${p.crop_id || d.id}): Stage=${p.stage}, pH=${s.ph}, EC=${s.ec}, Status=${deriveCropStatus(p)}, Outcome=${p.outcome || "Pending"}`;
         })
         .join("\n");
-
-      return `
-FLEET OVERVIEW:
+      return `FLEET OVERVIEW:
 - Total crops: ${fleetStats.total}
 - Healthy: ${fleetStats.healthy}, Needs Attention: ${fleetStats.attention}, Critical: ${fleetStats.critical}
-
 CURRENT CROPS:
 ${cropSummaries || "No crops in database."}
-
-SYSTEM: Hydroponic multi-crop farm management system (Demeter).
-`.trim();
+SYSTEM: Hydroponic multi-crop farm management system (Demeter).`.trim();
     }
   };
 
@@ -959,39 +937,59 @@ SYSTEM: Hydroponic multi-crop farm management system (Demeter).
 
     try {
       const context = buildLLMContext(selectedCrop);
+      const languageInstruction =
+        lang === "hi"
+          ? "Respond entirely in Hindi. Use agricultural terminology appropriate for Hindi speakers."
+          : "Respond entirely in English.";
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          thinking: { type: "enabled", budget_tokens: 5000 },
-          system: `You are Demeter Intelligence, an expert AI agronomist and data analyst for a hydroponic farm management system. 
+      const systemPrompt = `You are Demeter Intelligence, an expert AI agronomist and data analyst for a hydroponic farm management system. 
 You have access to live farm data and must answer questions about crop health, agent decisions, and farm performance.
 Be specific, cite the actual numbers from the data, and be practical. Keep answers concise but thorough.
-When explaining agent decisions, reference the explanation_log if available.`,
+When explaining agent decisions, reference the explanation_log if available.
+Before answering, wrap your step-by-step reasoning in <thinking>...</thinking> tags.
+CRITICAL INSTRUCTION: ${languageInstruction}`;
+
+      const AZURE_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
+      const AZURE_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+      const AZURE_API_VERSION = process.env.AZURE_OPENAI_API_VERSION;
+      const AZURE_API_KEY = process.env.AZURE_OPENAI_API_KEY;
+
+      const url = `${AZURE_ENDPOINT}/openai/deployments/${AZURE_DEPLOYMENT}/chat/completions?api-version=${AZURE_API_VERSION}`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": AZURE_API_KEY,
+        },
+        body: JSON.stringify({
           messages: [
+            { role: "system", content: systemPrompt },
             {
               role: "user",
               content: `FARM DATA:\n${context}\n\nQUESTION: ${query}`,
             },
           ],
+          max_tokens: 1000,
+          temperature: 0.2,
         }),
       });
 
+      if (!response.ok) throw new Error("Azure OpenAI request failed");
       const data = await response.json();
+      const rawText = data.choices?.[0]?.message?.content || "";
 
+      // Parse <thinking> tags to split reasoning and answer
       let thinking = "";
-      let answer = "";
-
-      for (const block of data.content || []) {
-        if (block.type === "thinking") thinking = block.thinking;
-        if (block.type === "text") answer = block.text;
+      let answer = rawText;
+      const thinkingMatch = rawText.match(/<thinking>([\s\S]*?)<\/thinking>/);
+      if (thinkingMatch) {
+        thinking = thinkingMatch[1].trim();
+        answer = rawText.replace(/<thinking>[\s\S]*?<\/thinking>/, "").trim();
       }
 
       setLlmThinking(thinking);
-      setLlmAnswer(answer || "No response generated.");
+      setLlmAnswer(answer || t("intel_no_response"));
 
       // Also run a search to show related crops
       if (selectedCrop) {
@@ -1010,14 +1008,12 @@ When explaining agent decisions, reference the explanation_log if available.`,
                 })),
             );
           }
-        } catch {
-          // Related crops are optional
-        }
+        } catch {}
       }
     } catch (e) {
       console.error(e);
-      showToast("LLM query failed", "error");
-      setLlmAnswer("Failed to get a response. Please check your connection.");
+      showToast(t("intel_llm_fail_toast"), "error");
+      setLlmAnswer(t("intel_llm_fail"));
     } finally {
       setLoading(false);
     }
@@ -1051,7 +1047,7 @@ When explaining agent decisions, reference the explanation_log if available.`,
       if (data.query_logic)
         setQueryLogic(JSON.stringify(data.query_logic, null, 2));
     } catch {
-      showToast("Search failed", "error");
+      showToast(t("intel_search_fail_toast"), "error");
     } finally {
       setLoading(false);
     }
@@ -1110,8 +1106,8 @@ When explaining agent decisions, reference the explanation_log if available.`,
   };
 
   const suggestions = selectedCrop
-    ? CROP_SUGGESTIONS(selectedCrop.crop, selectedCrop.cropId)
-    : GLOBAL_SUGGESTIONS;
+    ? getCropSuggestions(td(selectedCrop.crop), t)
+    : getGlobalSuggestions(t);
 
   return (
     <div
@@ -1184,10 +1180,8 @@ When explaining agent decisions, reference the explanation_log if available.`,
             <Sparkles size={15} style={{ color: "#a78bfa" }} />
           </div>
           <div>
-            <h1 className="page-title">Farm Intelligence</h1>
-            <p className="page-subtitle">
-              Query your crops · Ask Demeter anything · Explore patterns
-            </p>
+            <h1 className="page-title">{t("intel_title")}</h1>
+            <p className="page-subtitle">{t("intel_subtitle")}</p>
           </div>
 
           {/* Mode toggle */}
@@ -1203,8 +1197,8 @@ When explaining agent decisions, reference the explanation_log if available.`,
             }}
           >
             {[
-              { key: "search", label: "Search", icon: Search },
-              { key: "ask", label: "Ask AI", icon: MessageSquare },
+              { key: "search", label: t("intel_search"), icon: Search },
+              { key: "ask", label: t("intel_ask_ai"), icon: MessageSquare },
             ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -1249,25 +1243,25 @@ When explaining agent decisions, reference the explanation_log if available.`,
           {/* Fleet stats */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <FleetStat
-              label="Total Crops"
+              label={t("intel_total_crops")}
               value={fleetStats.total}
               color="var(--text-2)"
               icon={Database}
             />
             <FleetStat
-              label="Healthy"
+              label={t("intel_healthy")}
               value={fleetStats.healthy}
               color="var(--green)"
               icon={TrendingUp}
             />
             <FleetStat
-              label="Needs Attention"
+              label={t("intel_needs_attention")}
               value={fleetStats.attention}
               color="var(--amber)"
               icon={Minus}
             />
             <FleetStat
-              label="Critical"
+              label={t("intel_critical")}
               value={fleetStats.critical}
               color="var(--red)"
               icon={TrendingDown}
@@ -1292,38 +1286,16 @@ When explaining agent decisions, reference the explanation_log if available.`,
                   color: "var(--text-3)",
                 }}
               >
-                {mode === "ask" ? "ASK ABOUT:" : "FILTER BY:"}
+                {mode === "ask" ? t("intel_ask_about") : t("intel_filter_by")}
               </div>
               <CropSelector
                 crops={cropList}
                 selectedCrop={selectedCrop}
                 onSelect={setSelectedCrop}
                 onClear={() => setSelectedCrop(null)}
+                t={t}
+                td={td}
               />
-              {selectedCrop && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 10px",
-                    borderRadius: 20,
-                    background: "rgba(74,222,128,0.08)",
-                    border: "1px solid rgba(74,222,128,0.2)",
-                    fontSize: 10,
-                    fontFamily: "DM Mono, monospace",
-                    color: "var(--green)",
-                  }}
-                >
-                  <Leaf size={10} />
-                  Context loaded — {selectedCrop.stage} ·{" "}
-                  {selectedCrop.status === "Healthy"
-                    ? "✓ Healthy"
-                    : selectedCrop.status === "Attention"
-                      ? "⚠ Attention"
-                      : "✕ Critical"}
-                </div>
-              )}
             </div>
 
             {/* Input bar */}
@@ -1365,9 +1337,11 @@ When explaining agent decisions, reference the explanation_log if available.`,
                 placeholder={
                   mode === "ask"
                     ? selectedCrop
-                      ? `Ask anything about ${selectedCrop.crop}…`
-                      : "Ask anything about your farm — decisions, trends, comparisons…"
-                    : "Search crops — 'Show all Tomato', 'Which are critical?', 'Find flowering stage'…"
+                      ? t("intel_ask_placeholder_crop", {
+                          crop: td(selectedCrop.crop),
+                        })
+                      : t("intel_ask_placeholder_fleet")
+                    : t("intel_search_placeholder")
                 }
                 style={{
                   flex: 1,
@@ -1428,11 +1402,11 @@ When explaining agent decisions, reference the explanation_log if available.`,
                   <Activity size={13} className="animate-spin" />
                 ) : mode === "ask" ? (
                   <>
-                    <Sparkles size={12} /> Ask
+                    <Sparkles size={12} /> {t("intel_ask_ai").split(" ")[0]}
                   </>
                 ) : (
                   <>
-                    <Search size={12} /> Search
+                    <Search size={12} /> {t("intel_search")}
                   </>
                 )}
               </button>
@@ -1462,8 +1436,10 @@ When explaining agent decisions, reference the explanation_log if available.`,
             <div>
               <div className="section-label">
                 {selectedCrop
-                  ? `SUGGESTED QUESTIONS FOR ${selectedCrop.crop.toUpperCase()}`
-                  : "QUICK QUERIES"}
+                  ? t("intel_suggested_crop", {
+                      crop: td(selectedCrop.crop).toUpperCase(),
+                    })
+                  : t("intel_suggested_global")}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {suggestions.map((s) => (
@@ -1569,6 +1545,8 @@ When explaining agent decisions, reference the explanation_log if available.`,
                     thinking={llmThinking}
                     query={textQuery}
                     cropContext={selectedCrop}
+                    t={t}
+                    td={td}
                   />
 
                   {/* Related crops */}
@@ -1582,7 +1560,7 @@ When explaining agent decisions, reference the explanation_log if available.`,
                           size={10}
                           style={{ display: "inline", marginRight: 5 }}
                         />
-                        SIMILAR CROPS IN DATABASE
+                        {t("intel_similar_crops")}
                       </div>
                       <div
                         style={{
@@ -1597,6 +1575,8 @@ When explaining agent decisions, reference the explanation_log if available.`,
                             key={r.id || i}
                             item={r}
                             score={r.score}
+                            t={t}
+                            td={td}
                           />
                         ))}
                       </div>
@@ -1613,20 +1593,9 @@ When explaining agent decisions, reference the explanation_log if available.`,
                   >
                     <div className="section-label" style={{ margin: 0 }}>
                       {results.length > 0
-                        ? `${results.length} RESULT${results.length !== 1 ? "S" : ""} FOUND`
-                        : "NO RESULTS"}
+                        ? t("intel_results_found", { n: results.length })
+                        : t("intel_no_results")}
                     </div>
-                    {results.length > 0 && (
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontFamily: "DM Mono, monospace",
-                          color: "var(--text-3)",
-                        }}
-                      >
-                        for "{textQuery}"
-                      </span>
-                    )}
                     {queryLogic && (
                       <button
                         onClick={() => setShowQueryLogic(!showQueryLogic)}
@@ -1646,11 +1615,12 @@ When explaining agent decisions, reference the explanation_log if available.`,
                         }}
                       >
                         <BookOpen size={11} />{" "}
-                        {showQueryLogic ? "Hide" : "View"} query logic
+                        {showQueryLogic
+                          ? t("intel_hide_logic")
+                          : t("intel_view_logic")}
                       </button>
                     )}
                   </div>
-
                   {showQueryLogic && queryLogic && (
                     <div
                       className="animate-fade-in"
@@ -1661,7 +1631,9 @@ When explaining agent decisions, reference the explanation_log if available.`,
                         border: "1px solid var(--border)",
                       }}
                     >
-                      <div className="section-label">QDRANT FILTER</div>
+                      <div className="section-label">
+                        {t("intel_logic_header")}
+                      </div>
                       <pre
                         style={{
                           fontSize: 12,
@@ -1676,7 +1648,6 @@ When explaining agent decisions, reference the explanation_log if available.`,
                       </pre>
                     </div>
                   )}
-
                   {results.length === 0 ? (
                     <div
                       style={{
@@ -1691,41 +1662,6 @@ When explaining agent decisions, reference the explanation_log if available.`,
                         border: "1px dashed var(--border)",
                       }}
                     >
-                      <div
-                        style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: 16,
-                          background: "var(--bg-3)",
-                          border: "1px solid var(--border)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Brain size={22} style={{ color: "var(--text-3)" }} />
-                      </div>
-                      <div style={{ textAlign: "center" }}>
-                        <div
-                          style={{
-                            fontSize: 14,
-                            fontWeight: 600,
-                            color: "var(--text-2)",
-                          }}
-                        >
-                          No crops matched
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            color: "var(--text-3)",
-                            marginTop: 6,
-                          }}
-                        >
-                          Try a different query or switch to Ask AI mode for
-                          natural language questions.
-                        </div>
-                      </div>
                       <button
                         onClick={() => setMode("ask")}
                         style={{
@@ -1742,7 +1678,7 @@ When explaining agent decisions, reference the explanation_log if available.`,
                           color: "#a78bfa",
                         }}
                       >
-                        <Sparkles size={11} /> Try Ask AI instead
+                        <Sparkles size={11} /> {t("intel_try_ask")}
                       </button>
                     </div>
                   ) : (
@@ -1755,7 +1691,13 @@ When explaining agent decisions, reference the explanation_log if available.`,
                       }}
                     >
                       {results.map((r, i) => (
-                        <InsightCard key={r.id} result={r} idx={i} />
+                        <InsightCard
+                          key={r.id}
+                          result={r}
+                          idx={i}
+                          t={t}
+                          td={td}
+                        />
                       ))}
                     </div>
                   )}
@@ -1765,133 +1707,67 @@ When explaining agent decisions, reference the explanation_log if available.`,
           )}
 
           {/* Empty state */}
-          {!hasQueried && !loading && (
+          {!hasQueried && !loading && results.length === 0 && (
             <div
               style={{
-                flex: 1,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                padding: 48,
-                gap: 20,
-                borderRadius: 16,
+                padding: 64,
+                gap: 16,
+                borderRadius: 14,
                 background: "var(--surface)",
                 border: "1px dashed var(--border)",
+                marginTop: 20,
               }}
             >
               <div
                 style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 20,
-                  background: "rgba(167,139,250,0.1)",
-                  border: "1px solid rgba(167,139,250,0.2)",
+                  width: 56,
+                  height: 56,
+                  borderRadius: 16,
+                  background:
+                    mode === "ask"
+                      ? "rgba(167,139,250,0.12)"
+                      : "rgba(74,222,128,0.12)",
+                  border: `1px solid ${mode === "ask" ? "rgba(167,139,250,0.3)" : "rgba(74,222,128,0.3)"}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Sparkles size={28} style={{ color: "#a78bfa" }} />
+                {mode === "ask" ? (
+                  <Sparkles size={24} style={{ color: "#a78bfa" }} />
+                ) : (
+                  <Search size={24} style={{ color: "var(--green)" }} />
+                )}
               </div>
-              <div style={{ textAlign: "center", maxWidth: 420 }}>
+              <div style={{ textAlign: "center", maxWidth: 400 }}>
                 <div
                   style={{
                     fontWeight: 700,
                     fontSize: 16,
                     color: "var(--text)",
+                    marginBottom: 8,
                   }}
                 >
                   {mode === "ask"
-                    ? "Ask Demeter anything about your farm"
-                    : "Search your crop database"}
+                    ? t("intel_empty_ask_title")
+                    : t("intel_empty_search_title")}
                 </div>
                 <div
                   style={{
                     fontSize: 13,
                     color: "var(--text-3)",
-                    marginTop: 8,
                     lineHeight: 1.6,
                   }}
                 >
                   {mode === "ask"
-                    ? "Select a specific crop for targeted questions, or ask fleet-wide questions. The AI uses live sensor data, agent decisions, and explanation logs to answer."
-                    : "Use natural language to filter crops by type, stage, status or outcome. The supervisor translates your query into precise database filters."}
+                    ? t("intel_empty_ask_desc")
+                    : t("intel_empty_search_desc")}
                 </div>
               </div>
-
-              {mode === "ask" && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                    width: "100%",
-                    maxWidth: 440,
-                  }}
-                >
-                  {[
-                    {
-                      icon: Cpu,
-                      label: "Decision Reasoning",
-                      desc: "Why did the agent take this action?",
-                    },
-                    {
-                      icon: BarChart2,
-                      label: "Performance Analysis",
-                      desc: "How is my crop trending?",
-                    },
-                    {
-                      icon: GitBranch,
-                      label: "Comparative Insights",
-                      desc: "How does this compare to other crops?",
-                    },
-                    {
-                      icon: Zap,
-                      label: "Actionable Advice",
-                      desc: "What should I do next?",
-                    },
-                  ].map(({ icon: Icon, label, desc }) => (
-                    <div
-                      key={label}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "10px 16px",
-                        borderRadius: 10,
-                        background: "var(--bg-3)",
-                        border: "1px solid var(--border)",
-                      }}
-                    >
-                      <Icon
-                        size={14}
-                        style={{ color: "#a78bfa", flexShrink: 0 }}
-                      />
-                      <div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: "var(--text-2)",
-                          }}
-                        >
-                          {label}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "var(--text-3)",
-                            marginTop: 1,
-                          }}
-                        >
-                          {desc}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
         </div>

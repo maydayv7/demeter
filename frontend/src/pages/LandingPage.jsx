@@ -12,31 +12,8 @@ import {
 } from "lucide-react";
 import { useFarmData } from "../hooks/useFarmData";
 import { extractSensors, deriveCropStatus } from "../utils/dataUtils";
+import { useT } from "../hooks/useTranslation";
 
-const FEATURES = [
-  {
-    icon: Cpu,
-    label: "Reinforcement Learning",
-    desc: "Contextual bandit that learns with every cycle",
-  },
-  {
-    icon: Eye,
-    label: "Computer Vision",
-    desc: "Azure CV-powered disease detection",
-  },
-  {
-    icon: Database,
-    label: "Vector Memory",
-    desc: "Qdrant-backed long-term plant biographies",
-  },
-  {
-    icon: Zap,
-    label: "Physics Simulation",
-    desc: "LLM-based digital twin before every action",
-  },
-];
-
-// Compute fleet-wide averages from dashboard data
 function computeFleetStats(dashData) {
   if (!dashData?.length) return null;
   const sensors = dashData.map((d) => extractSensors(d.payload));
@@ -98,6 +75,7 @@ function buildActivityLog(historyData) {
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { t, td } = useT();
   const [mounted, setMounted] = useState(false);
   const { dashboard, history, loading } = useFarmData();
 
@@ -115,43 +93,69 @@ export default function LandingPage() {
     }
   }, [dashboard, history, loading]);
 
+  const FEATURES = [
+    {
+      icon: Cpu,
+      label: t("landing_feature_rl"),
+      desc: t("landing_feature_rl_desc"),
+    },
+    {
+      icon: Eye,
+      label: t("landing_feature_cv"),
+      desc: t("landing_feature_cv_desc"),
+    },
+    {
+      icon: Database,
+      label: t("landing_feature_vector"),
+      desc: t("landing_feature_vector_desc"),
+    },
+    {
+      icon: Zap,
+      label: t("landing_feature_sim"),
+      desc: t("landing_feature_sim_desc"),
+    },
+  ];
+
   const headlineStats = stats
     ? [
-        { val: stats.cropCount.toString(), label: "Active Crops" },
-        { val: stats.cropTypes.length.toString(), label: "Crop Types" },
-        { val: stats.totalSeqs.toString(), label: "Total Cycles" },
+        { val: stats.cropCount.toString(), label: t("landing_active_crops") },
+        {
+          val: stats.cropTypes.length.toString(),
+          label: t("landing_crop_types"),
+        },
+        { val: stats.totalSeqs.toString(), label: t("landing_total_cycles") },
         {
           val: stats.alerts > 0 ? stats.alerts.toString() : "0",
-          label: "Active Alerts",
+          label: t("landing_active_alerts"),
         },
       ]
     : [
-        { val: "—", label: "Active Crops" },
-        { val: "—", label: "Crop Types" },
-        { val: "—", label: "Total Cycles" },
-        { val: "—", label: "Active Alerts" },
+        { val: "—", label: t("landing_active_crops") },
+        { val: "—", label: t("landing_crop_types") },
+        { val: "—", label: t("landing_total_cycles") },
+        { val: "—", label: t("landing_active_alerts") },
       ];
 
   // Live sensor readings
   const readings = stats
     ? [
         {
-          label: "AVG pH",
+          label: t("analytics_avg_ph"),
           value: stats.ph,
           ok: parseFloat(stats.ph) >= 5.5 && parseFloat(stats.ph) <= 6.5,
         },
         {
-          label: "AVG EC",
+          label: t("analytics_avg_ec"),
           value: `${stats.ec}`,
           ok: parseFloat(stats.ec) <= 2.5,
         },
         {
-          label: "TEMP",
+          label: t("sensor_temp").toUpperCase(),
           value: `${stats.temp}°C`,
           ok: parseFloat(stats.temp) >= 18 && parseFloat(stats.temp) <= 30,
         },
         {
-          label: "HUMIDITY",
+          label: t("sensor_humidity").toUpperCase(),
           value: `${stats.humidity}%`,
           ok:
             parseFloat(stats.humidity) >= 40 &&
@@ -159,10 +163,10 @@ export default function LandingPage() {
         },
       ]
     : [
-        { label: "AVG pH", value: "—", ok: true },
-        { label: "AVG EC", value: "—", ok: true },
-        { label: "TEMP", value: "—", ok: true },
-        { label: "HUMIDITY", value: "—", ok: true },
+        { label: t("analytics_avg_ph"), value: "—", ok: true },
+        { label: t("analytics_avg_ec"), value: "—", ok: true },
+        { label: t("sensor_temp").toUpperCase(), value: "—", ok: true },
+        { label: t("sensor_humidity").toUpperCase(), value: "—", ok: true },
       ];
 
   return (
@@ -204,7 +208,7 @@ export default function LandingPage() {
               className="text-[9px] font-mono tracking-[0.2em]"
               style={{ color: "var(--text-3)" }}
             >
-              AUTONOMOUS FARM INTELLIGENCE
+              {td("AUTONOMOUS FARM INTELLIGENCE")}
             </div>
           </div>
         </div>
@@ -222,7 +226,11 @@ export default function LandingPage() {
               className="status-dot w-1.5 h-1.5 rounded-full"
               style={{ background: "var(--green)" }}
             />
-            {loading ? "CONNECTING…" : stats ? "FARM ONLINE" : "NO DATA"}
+            {loading
+              ? t("sidebar_connecting")
+              : stats
+                ? t("sidebar_farm_online")
+                : t("sidebar_no_data")}
           </div>
           <button
             onClick={() => navigate("/dashboard")}
@@ -233,7 +241,7 @@ export default function LandingPage() {
               border: "1px solid var(--border)",
             }}
           >
-            Dashboard
+            {t("landing_enter_dash")}
           </button>
         </div>
       </nav>
@@ -254,32 +262,30 @@ export default function LandingPage() {
               }}
             >
               <Zap size={10} fill="currentColor" />
-              MULTI-AGENT SYSTEM · LANGGRAPH · QDRANT
+              {td("MULTI-AGENT SYSTEM · LANGGRAPH · AZURE")}
             </div>
 
             <h1
               className="text-6xl lg:text-7xl font-bold leading-[1.0] tracking-tight"
               style={{ color: "var(--text)" }}
             >
-              The Farm
+              {t("landing_hero_1")}
               <br />
               <span
                 className="font-serif italic"
                 style={{ color: "var(--green)" }}
               >
-                Thinks
+                {t("landing_hero_2")}
               </span>
               <br />
-              For Itself.
+              {t("landing_hero_3")}
             </h1>
 
             <p
               className="text-lg leading-relaxed max-w-md"
               style={{ color: "var(--text-2)", fontWeight: 300 }}
             >
-              Demeter is a cognitive hydroponic system. Seven specialized AI
-              agents collaborate to perceive, reason, and act — optimizing your
-              crops 24/7 without human intervention.
+              {t("landing_hero_sub")}
             </p>
 
             <div className="flex gap-4">
@@ -288,7 +294,7 @@ export default function LandingPage() {
                 className="group flex items-center gap-3 px-7 py-3.5 rounded-xl font-semibold text-sm transition-all glow-green"
                 style={{ background: "var(--green)", color: "#0c1a0e" }}
               >
-                Enter Dashboard{" "}
+                {t("landing_enter_dash")}{" "}
                 <ArrowRight
                   size={16}
                   className="group-hover:translate-x-1 transition-transform"
@@ -303,7 +309,7 @@ export default function LandingPage() {
                   background: "var(--surface)",
                 }}
               >
-                <Sparkles size={16} /> Intelligence
+                <Sparkles size={16} /> {t("landing_intelligence")}
               </button>
             </div>
 
@@ -370,7 +376,7 @@ export default function LandingPage() {
                   className="ml-2 text-[11px] font-mono"
                   style={{ color: "var(--text-3)" }}
                 >
-                  demeter://live-feed
+                  {t("landing_live_feed")}
                 </span>
                 <Activity
                   size={11}
@@ -415,7 +421,7 @@ export default function LandingPage() {
                             : "rgba(248,113,113,0.6)",
                         }}
                       >
-                        {ok ? "● OPTIMAL" : "● ALERT"}
+                        {ok ? t("landing_optimal") : t("landing_alert")}
                       </div>
                     </div>
                   ))}
@@ -433,7 +439,7 @@ export default function LandingPage() {
                     className="text-[10px] font-mono mb-3"
                     style={{ color: "var(--text-3)" }}
                   >
-                    RECENT AGENT ACTIVITY
+                    {t("landing_recent_activity")}
                   </div>
                   <div className="space-y-2">
                     {loading ? (
@@ -457,10 +463,10 @@ export default function LandingPage() {
                               whiteSpace: "nowrap",
                             }}
                           >
-                            {agent.substring(0, 12)}
+                            {td(agent.substring(0, 12))}
                           </span>
                           <span style={{ color: "var(--text-2)" }}>
-                            {msg.substring(0, 40)}
+                            {td(msg.substring(0, 40))}
                             {msg.length > 40 ? "…" : ""}
                           </span>
                         </div>
@@ -470,8 +476,7 @@ export default function LandingPage() {
                         className="text-[11px] font-mono"
                         style={{ color: "var(--text-3)" }}
                       >
-                        No cycles recorded yet. Run the agent loop to see
-                        activity.
+                        {t("landing_no_cycles")}
                       </div>
                     )}
                     <div
@@ -495,8 +500,8 @@ export default function LandingPage() {
                   color: "var(--amber)",
                 }}
               >
-                ⬆ {stats.cropCount} crop{stats.cropCount !== 1 ? "s" : ""}{" "}
-                monitored
+                ⬆ {stats.cropCount} {t("common_crop").toLowerCase()}
+                {stats.cropCount !== 1 ? "s" : ""}
               </div>
             )}
           </div>
@@ -511,7 +516,7 @@ export default function LandingPage() {
             className="text-[11px] font-mono mb-8"
             style={{ color: "var(--text-3)" }}
           >
-            // CORE CAPABILITIES
+            {t("landing_capabilities")}
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {FEATURES.map(({ icon: Icon, label, desc }) => (

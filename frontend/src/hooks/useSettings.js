@@ -5,9 +5,12 @@ const DEFAULTS = {
   userDesignation: "Farm Owner",
   userInitials: "R",
   theme: "dark",
+  language: "en",
   maxResultsPerPage: 12,
   alertsShowAcked: false,
   compactMode: false,
+  onboardingDone: false,
+  historyLogLimit: 20,
 };
 
 const SettingsContext = createContext();
@@ -31,8 +34,23 @@ export function SettingsProvider({ children }) {
 
   // Apply theme to <html>
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", settings.theme);
+    const theme =
+      settings.theme === "auto"
+        ? window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light"
+        : settings.theme;
+    document.documentElement.setAttribute("data-theme", theme);
   }, [settings.theme]);
+
+  // Use Noto Sans for Hindi
+  useEffect(() => {
+    if (settings.language === "hi") {
+      document.documentElement.setAttribute("data-lang", "hi");
+    } else {
+      document.documentElement.setAttribute("data-lang", "en");
+    }
+  }, [settings.language]);
 
   const update = (key, value) =>
     setSettings((prev) => ({ ...prev, [key]: value }));

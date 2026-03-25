@@ -17,6 +17,7 @@ import {
   PolarAngleAxis,
 } from "recharts";
 import { useFarmData } from "../hooks/useFarmData";
+import { useT } from "../hooks/useTranslation";
 import {
   extractSensors,
   avg,
@@ -55,8 +56,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-// Metric Card
-function MetricCard({ label, value, unit, change, color, loading }) {
+function MetricCard({ label, value, unit, change, color, loading, t }) {
   const up = change > 0;
   const flat = change === 0;
   return (
@@ -115,7 +115,8 @@ function MetricCard({ label, value, unit, change, color, loading }) {
             color: flat ? "var(--text-3)" : up ? "var(--green)" : "var(--red)",
           }}
         >
-          {Math.abs(change)}% vs prior
+          {Math.abs(change)}
+          {t("analytics_vs_prior")}
         </span>
       </div>
     </div>
@@ -140,7 +141,7 @@ function SectionHead({ label, title }) {
   );
 }
 
-function EmptyChart({ height = 180, message = "No data yet" }) {
+function EmptyChart({ height = 180, message }) {
   return (
     <div
       style={{
@@ -169,6 +170,7 @@ function EmptyChart({ height = 180, message = "No data yet" }) {
 // MAIN
 
 export default function Analytics() {
+  const { t, td } = useT();
   const [range, setRange] = useState("24h");
   const { dashboard, history: allPoints, loading } = useFarmData();
 
@@ -205,7 +207,6 @@ export default function Analytics() {
 
   const activityData = useMemo(() => dailyCropActivity(allPoints), [allPoints]);
   const radarData = useMemo(() => buildRadar(allPoints), [allPoints]);
-  const agentStats = useMemo(() => buildAgentStats(allPoints), [allPoints]);
   const cropSummaryRows = useMemo(() => {
     if (!dashboard?.length) return [];
     return dashboard.map((item) => {
@@ -215,7 +216,7 @@ export default function Analytics() {
     });
   }, [dashboard]);
 
-  const agentRows = agentStats;
+  const agentRows = useMemo(() => buildAgentStats(allPoints), [allPoints]);
 
   const handleExport = () => {
     if (!buckets.length) return;
@@ -263,11 +264,14 @@ export default function Analytics() {
           }}
         >
           <div>
-            <h1 className="page-title">Analytics</h1>
+            <h1 className="page-title">{t("analytics_title")}</h1>
             <p className="page-subtitle">
               {loading
-                ? "Loading…"
-                : `${allPoints.length} data points across ${dashboard.length} crops`}
+                ? t("common_loading")
+                : t("analytics_subtitle", {
+                    points: allPoints.length,
+                    crops: dashboard.length,
+                  })}
             </p>
           </div>
           <div
@@ -313,7 +317,7 @@ export default function Analytics() {
                 cursor: "pointer",
               }}
             >
-              <Download size={12} /> Export CSV
+              <Download size={12} /> {t("analytics_export")}
             </button>
           </div>
         </header>
@@ -339,31 +343,34 @@ export default function Analytics() {
           >
             <MetricCard
               loading={loading}
-              label="AVG pH"
+              label={t("analytics_avg_ph")}
               value={latestSensors.ph}
               unit=""
               change={safePct(latestSensors.ph, prevSensors.ph)}
               color="var(--green)"
+              t={t}
             />
             <MetricCard
               loading={loading}
-              label="AVG EC"
+              label={t("analytics_avg_ec")}
               value={latestSensors.ec}
               unit="dS/m"
               change={safePct(latestSensors.ec, prevSensors.ec)}
               color="var(--amber)"
+              t={t}
             />
             <MetricCard
               loading={loading}
-              label="AVG TEMP"
+              label={t("analytics_avg_temp")}
               value={latestSensors.temp}
               unit="°C"
               change={safePct(latestSensors.temp, prevSensors.temp)}
               color="var(--blue)"
+              t={t}
             />
             <MetricCard
               loading={loading}
-              label="TOTAL SEQUENCES"
+              label={t("analytics_total_seq")}
               value={allPoints.length}
               unit=""
               change={safePct(
@@ -371,6 +378,7 @@ export default function Analytics() {
                 Math.max(allPoints.length - dashboard.length, 1),
               )}
               color="var(--text)"
+              t={t}
             />
           </div>
 
@@ -380,20 +388,22 @@ export default function Analytics() {
           >
             {[
               {
-                title: "pH Over Time",
+                title: t("analytics_ph_over_time"),
                 key: "ph",
                 stroke: "var(--green)",
                 gradId: "phGradA",
                 gradColor: "#4ade80",
+                name: t("chart_ph"),
               },
               {
-                title: "EC Concentration",
+                title: t("analytics_ec_conc"),
                 key: "ec",
                 stroke: "var(--amber)",
                 gradId: "ecGradA",
                 gradColor: "#f59e0b",
+                name: t("chart_ec"),
               },
-            ].map(({ title, key, stroke, gradId, gradColor }) => (
+            ].map(({ title, key, stroke, gradId, gradColor, name }) => (
               <div
                 key={key}
                 style={{
@@ -404,11 +414,11 @@ export default function Analytics() {
                 }}
               >
                 <SectionHead
-                  label={`${range.toUpperCase()} TRACE`}
+                  label={t("analytics_trace", { range: range.toUpperCase() })}
                   title={title}
                 />
                 {buckets.length < 2 ? (
-                  <EmptyChart message="Not enough data for this range" />
+                  <EmptyChart message={t("analytics_no_data_range")} />
                 ) : (
                   <ResponsiveContainer width="100%" height={180}>
                     <AreaChart data={buckets}>
@@ -460,7 +470,7 @@ export default function Analytics() {
                         fill={`url(#${gradId})`}
                         strokeWidth={2}
                         dot={false}
-                        name={key.toUpperCase()}
+                        name={name}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -479,11 +489,11 @@ export default function Analytics() {
             }}
           >
             <SectionHead
-              label={`${range.toUpperCase()} TRACE`}
-              title="Temperature & Humidity"
+              label={t("analytics_trace", { range: range.toUpperCase() })}
+              title={t("analytics_temp_hum")}
             />
             {buckets.length < 2 ? (
-              <EmptyChart message="Not enough data for this range" />
+              <EmptyChart message={t("analytics_no_data_range")} />
             ) : (
               <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={buckets}>
@@ -534,7 +544,7 @@ export default function Analytics() {
                     stroke="#60a5fa"
                     strokeWidth={2}
                     dot={false}
-                    name="Temp °C"
+                    name={t("chart_temp")}
                   />
                   <Line
                     yAxisId="right"
@@ -543,7 +553,7 @@ export default function Analytics() {
                     stroke="#a78bfa"
                     strokeWidth={2}
                     dot={false}
-                    name="Humidity %"
+                    name={t("chart_humidity")}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -563,11 +573,14 @@ export default function Analytics() {
               }}
             >
               <SectionHead
-                label="DAILY ACTIVITY"
-                title="Sequences Logged per Day"
+                label={t("analytics_daily_act")}
+                title={t("analytics_seq_per_day")}
               />
               {activityData.length < 2 ? (
-                <EmptyChart height={180} message="Need 2+ days of data" />
+                <EmptyChart
+                  height={180}
+                  message={t("analytics_no_data_days")}
+                />
               ) : (
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={activityData} barGap={4}>
@@ -601,7 +614,7 @@ export default function Analytics() {
                       dataKey="count"
                       fill="#2d7a44"
                       radius={[4, 4, 0, 0]}
-                      name="Sequences"
+                      name={t("chart_sequences")}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -617,11 +630,14 @@ export default function Analytics() {
               }}
             >
               <SectionHead
-                label="PARAMETER HEALTH"
-                title="In-Range Score (%)"
+                label={t("analytics_param_health")}
+                title={t("analytics_in_range_score")}
               />
               {radarData.length < 2 ? (
-                <EmptyChart height={180} message="Not enough data points" />
+                <EmptyChart
+                  height={180}
+                  message={t("analytics_no_data_points")}
+                />
               ) : (
                 <ResponsiveContainer width="100%" height={180}>
                   <RadarChart
@@ -644,7 +660,7 @@ export default function Analytics() {
                       stroke="var(--green)"
                       fill="rgba(74,222,128,0.15)"
                       strokeWidth={2}
-                      name="In-range %"
+                      name={t("chart_in_range")}
                     />
                     <Tooltip content={<CustomTooltip />} />
                   </RadarChart>
@@ -669,7 +685,10 @@ export default function Analytics() {
                 borderBottom: "1px solid var(--border)",
               }}
             >
-              <SectionHead label="PER CROP" title="Latest Sensor Summary" />
+              <SectionHead
+                label={t("analytics_per_crop")}
+                title={t("analytics_latest_sensor")}
+              />
             </div>
             {loading ? (
               <div style={{ padding: 32, textAlign: "center" }}>
@@ -680,7 +699,7 @@ export default function Analytics() {
                     color: "var(--text-3)",
                   }}
                 >
-                  Loading…
+                  {t("common_loading")}
                 </span>
               </div>
             ) : cropSummaryRows.length === 0 ? (
@@ -693,7 +712,7 @@ export default function Analytics() {
                   color: "var(--text-3)",
                 }}
               >
-                No crops found in database
+                {t("dash_no_crops")}
               </div>
             ) : (
               <table
@@ -703,13 +722,13 @@ export default function Analytics() {
                 <thead>
                   <tr>
                     {[
-                      "Crop ID",
-                      "Type",
-                      "Stage",
-                      "pH",
-                      "EC",
-                      "Temp",
-                      "Sequences",
+                      t("analytics_th_crop_id"),
+                      t("analytics_th_type"),
+                      t("analytics_th_stage"),
+                      t("analytics_th_ph"),
+                      t("analytics_th_ec"),
+                      t("analytics_th_temp"),
+                      t("analytics_th_seq"),
                     ].map((h) => (
                       <th key={h}>{h}</th>
                     ))}
@@ -737,7 +756,7 @@ export default function Analytics() {
                       >
                         {p.crop_id || "—"}
                       </td>
-                      <td>{p.crop || "—"}</td>
+                      <td>{td(p.crop) || "—"}</td>
                       <td
                         style={{
                           color: "var(--text-3)",
@@ -745,7 +764,7 @@ export default function Analytics() {
                           fontFamily: "DM Mono, monospace",
                         }}
                       >
-                        {p.stage || "—"}
+                        {td(p.stage) || "—"}
                       </td>
                       <td>
                         <span
@@ -822,8 +841,8 @@ export default function Analytics() {
               }}
             >
               <SectionHead
-                label="DERIVED FROM STORED ACTIONS"
-                title="Agent Activity"
+                label={t("analytics_derived_act")}
+                title={t("analytics_agent_act")}
               />
             </div>
             <table
@@ -832,11 +851,14 @@ export default function Analytics() {
             >
               <thead>
                 <tr>
-                  {["Agent", "Appearances", "Success Rate", "Status"].map(
-                    (h) => (
-                      <th key={h}>{h}</th>
-                    ),
-                  )}
+                  {[
+                    t("analytics_th_agent"),
+                    t("analytics_th_apps"),
+                    t("analytics_th_success"),
+                    t("analytics_th_status"),
+                  ].map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -921,7 +943,7 @@ export default function Analytics() {
                           border: "1px solid rgba(74,222,128,0.2)",
                         }}
                       >
-                        ONLINE
+                        {t("analytics_online")}
                       </span>
                     </td>
                   </tr>

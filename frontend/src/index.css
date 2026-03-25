@@ -1,10 +1,10 @@
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Dark Theme */
+/* ─── Dark Theme ───────────────────────────────────────────────── */
 :root,
 [data-theme="dark"] {
   --bg: #0c1a0e;
@@ -31,9 +31,20 @@
   --scrollbar-thumb: #3d6040;
   --tooltip-bg: #1a2b1c;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+
+  /* Log / terminal area */
+  --log-bg: #080f09;
+  --log-text: #a8bfaa;
+
+  /* Hover backgrounds */
+  --hover-bg: rgba(255, 255, 255, 0.04);
+  --hover-bg-alt: rgba(74, 222, 128, 0.06);
+
+  /* Button text on green background */
+  --btn-on-green: #0c1a0e;
 }
 
-/* Light Theme */
+/* ─── Light Theme ──────────────────────────────────────────────── */
 [data-theme="light"] {
   --bg: #f0f7f1;
   --bg-2: #ffffff;
@@ -58,9 +69,28 @@
   --scrollbar-thumb: #7db688;
   --tooltip-bg: #ffffff;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+
+  /* Log / terminal area — light but distinct */
+  --log-bg: #f0f5f1;
+  --log-text: #3d5e42;
+
+  /* Hover backgrounds */
+  --hover-bg: rgba(0, 0, 0, 0.04);
+  --hover-bg-alt: rgba(26, 124, 58, 0.06);
+
+  /* Button text on green background */
+  --btn-on-green: #ffffff;
 }
 
-/* Reset */
+/* ─── Hindi font body override ─────────────────────────────────── */
+[data-lang="hi"] body,
+[data-lang="hi"] button,
+[data-lang="hi"] input,
+[data-lang="hi"] select {
+  font-family: "Noto Sans Devanagari", "Syne", sans-serif;
+}
+
+/* ─── Reset ────────────────────────────────────────────────────── */
 * {
   box-sizing: border-box;
 }
@@ -77,7 +107,7 @@ body {
     color 0.25s ease;
 }
 
-/* Scrollbar */
+/* ─── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -90,8 +120,7 @@ body {
   border-radius: 3px;
 }
 
-/* TYPOGRAPHY */
-/* Section headings (// COMMENT style) */
+/* ─── TYPOGRAPHY ───────────────────────────────────────────────── */
 .section-label {
   font-size: 11px;
   font-family: "DM Mono", monospace;
@@ -110,7 +139,6 @@ body {
   font-weight: 700;
 }
 
-/* Sensor value */
 .sensor-value {
   font-size: 28px;
   font-weight: 700;
@@ -143,7 +171,6 @@ body {
   margin-left: 3px;
 }
 
-/* Page heading */
 .page-title {
   font-size: 20px;
   font-weight: 700;
@@ -157,7 +184,7 @@ body {
   margin: 2px 0 0;
 }
 
-/* Table */
+/* ─── Table ────────────────────────────────────────────────────── */
 .data-table th {
   font-size: 11px;
   font-family: "DM Mono", monospace;
@@ -180,7 +207,7 @@ body {
   border-bottom: none;
 }
 
-/* UTILITIES */
+/* ─── UTILITIES ────────────────────────────────────────────────── */
 .font-mono {
   font-family: "DM Mono", monospace;
 }
@@ -194,7 +221,7 @@ body {
     0 0 60px rgba(74, 222, 128, 0.05);
 }
 
-/* Scan line */
+/* ─── Scan line (dark only) ────────────────────────────────────── */
 @keyframes scanline {
   0% {
     transform: translateY(-100%);
@@ -223,7 +250,7 @@ body {
   display: none;
 }
 
-/* Animations */
+/* ─── Animations ───────────────────────────────────────────────── */
 @keyframes fadeUp {
   from {
     opacity: 0;
@@ -262,6 +289,15 @@ body {
     box-shadow: 0 0 0 8px rgba(248, 113, 113, 0);
   }
 }
+@keyframes harvestPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+  }
+}
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
@@ -296,6 +332,9 @@ body {
 }
 .alert-pulse {
   animation: alertPulse 2s ease infinite;
+}
+.harvest-pulse {
+  animation: harvestPulse 2.5s ease infinite;
 }
 .progress-fill {
   animation: progressFill 1s ease forwards;
@@ -341,7 +380,7 @@ body {
     linear-gradient(90deg, rgba(26, 124, 58, 0.05) 1px, transparent 1px);
 }
 
-/* Input fields */
+/* ─── Input fields ─────────────────────────────────────────────── */
 input,
 select,
 textarea {
@@ -355,4 +394,15 @@ textarea {
 }
 input::placeholder {
   color: var(--text-3);
+}
+
+/* ─── Harvest badge animation ──────────────────────────────────── */
+.harvest-badge {
+  animation: harvestPulse 2.5s ease infinite;
+}
+
+/* ─── Log / terminal area ──────────────────────────────────────── */
+.log-area {
+  background: var(--log-bg) !important;
+  color: var(--log-text);
 }

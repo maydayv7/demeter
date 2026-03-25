@@ -1,46 +1,47 @@
 import { Fan, FlaskConical, Sprout, Waves } from "lucide-react";
+import { useT } from "../hooks/useTranslation";
 
-// Shared action metadata
+// Shared action metadata config
 const ACTION_META = {
   acid_dosage_ml: {
-    label: "Acid Dosage",
+    labelKey: "widget_acid",
     icon: FlaskConical,
     unit: "ml",
     color: "var(--red)",
     bg: "rgba(248,113,113,0.1)",
-    desc: "pH Down",
+    descKey: "widget_ph_down",
   },
   base_dosage_ml: {
-    label: "Base Dosage",
+    labelKey: "widget_base",
     icon: FlaskConical,
     unit: "ml",
     color: "#a78bfa",
     bg: "rgba(167,139,250,0.1)",
-    desc: "pH Up",
+    descKey: "widget_ph_up",
   },
   nutrient_dosage_ml: {
-    label: "Nutrients",
+    labelKey: "widget_nutrients",
     icon: Sprout,
     unit: "ml",
     color: "var(--green)",
     bg: "rgba(74,222,128,0.1)",
-    desc: "EC Boost",
+    descKey: "widget_ec_boost",
   },
   fan_speed_pct: {
-    label: "Fan Speed",
+    labelKey: "widget_fan",
     icon: Fan,
     unit: "%",
     color: "var(--blue)",
     bg: "rgba(96,165,250,0.1)",
-    desc: "Airflow",
+    descKey: "widget_airflow",
   },
   water_refill_l: {
-    label: "Water Refill",
+    labelKey: "widget_water",
     icon: Waves,
     unit: "L",
     color: "#22d3ee",
     bg: "rgba(34,211,238,0.1)",
-    desc: "Dilution",
+    descKey: "widget_dilution",
   },
 };
 
@@ -67,6 +68,7 @@ function parseAction(raw) {
 
 // Show actuator commands as cards
 export function AgentActionWidget({ actionTaken, compact = false }) {
+  const { t } = useT();
   const action = parseAction(actionTaken);
   if (!action) return null;
 
@@ -81,13 +83,7 @@ export function AgentActionWidget({ actionTaken, compact = false }) {
 
   if (compact) {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 6,
-        }}
-      >
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {display.map(({ key, meta, value }) => {
           const Icon = meta.icon;
           return (
@@ -122,7 +118,7 @@ export function AgentActionWidget({ actionTaken, compact = false }) {
                   color: "var(--text-3)",
                 }}
               >
-                {meta.desc}
+                {t(meta.descKey)}
               </span>
             </div>
           );
@@ -200,7 +196,7 @@ export function AgentActionWidget({ actionTaken, compact = false }) {
                 fontWeight: isActive ? 600 : 400,
               }}
             >
-              {meta.label}
+              {t(meta.labelKey)}
             </div>
           </div>
         );
@@ -211,6 +207,7 @@ export function AgentActionWidget({ actionTaken, compact = false }) {
 
 // Agent Outcome
 export function AgentOutcomeWidget({ outcome, rewardScore, strategicIntent }) {
+  const { t, td } = useT();
   if (!outcome || outcome === "PENDING_OBSERVATION") return null;
 
   const raw = outcome.split("| Reward:")[0].trim();
@@ -243,6 +240,13 @@ export function AgentOutcomeWidget({ outcome, rewardScore, strategicIntent }) {
 
   const emoji = isNegative ? "▼" : isPositive ? "▲" : "●";
 
+  // Try to use a static translation for known outcomes, else dynamic fallback
+  let translatedRaw = raw;
+  if (raw === "IMPROVED") translatedRaw = t("outcome_improved");
+  else if (raw === "DETERIORATED") translatedRaw = t("outcome_deteriorated");
+  else if (raw === "STABLE") translatedRaw = t("outcome_stable");
+  else translatedRaw = td(raw);
+
   return (
     <div
       style={{
@@ -265,7 +269,7 @@ export function AgentOutcomeWidget({ outcome, rewardScore, strategicIntent }) {
           flexShrink: 0,
         }}
       >
-        {emoji} {raw}
+        {emoji} {translatedRaw}
       </span>
 
       {reward != null && (
@@ -281,7 +285,7 @@ export function AgentOutcomeWidget({ outcome, rewardScore, strategicIntent }) {
             flexShrink: 0,
           }}
         >
-          Reward: {reward > 0 ? "+" : ""}
+          {t("reward_label")}: {reward > 0 ? "+" : ""}
           {reward.toFixed(2)}
         </span>
       )}
@@ -299,7 +303,7 @@ export function AgentOutcomeWidget({ outcome, rewardScore, strategicIntent }) {
             flexShrink: 0,
           }}
         >
-          {strategicIntent.replace(/_/g, " ")}
+          {td(strategicIntent.replace(/_/g, " "))}
         </span>
       )}
     </div>

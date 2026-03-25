@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { FarmDataProvider } from "./hooks/useFarmData";
 import { SettingsProvider } from "./hooks/useSettings";
+import { useSettings } from "./hooks/useSettings";
 
 import LandingPage from "./pages/LandingPage";
 import Dashboard from "./pages/Dashboard";
@@ -10,23 +12,52 @@ import FarmIntelligence from "./pages/FarmIntelligence";
 import Analytics from "./pages/Analytics";
 import Alerts from "./pages/Alerts";
 import SettingsPage from "./pages/Settings";
+import Onboarding from "./components/Onboarding";
+
+// Inner component so it can access SettingsProvider context
+function AppInner() {
+  const { settings, update } = useSettings();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (!settings.onboardingDone) {
+      // Small delay so the page renders first
+      const t = setTimeout(() => setShowOnboarding(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, [settings.onboardingDone]);
+
+  return (
+    <>
+      {showOnboarding && (
+        <Onboarding
+          onDone={() => {
+            update("onboardingDone", true);
+            setShowOnboarding(false);
+          }}
+        />
+      )}
+      <Router>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/crop/:cropId" element={<CropDetails />} />
+          <Route path="/add-crop" element={<AddCrop />} />
+          <Route path="/intelligence" element={<FarmIntelligence />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/alerts" element={<Alerts />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </Router>
+    </>
+  );
+}
 
 function App() {
   return (
     <SettingsProvider>
       <FarmDataProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/crop/:cropId" element={<CropDetails />} />
-            <Route path="/add-crop" element={<AddCrop />} />
-            <Route path="/intelligence" element={<FarmIntelligence />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
-        </Router>
+        <AppInner />
       </FarmDataProvider>
     </SettingsProvider>
   );

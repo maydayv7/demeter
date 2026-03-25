@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFarmData } from "../hooks/useFarmData";
+import { useT } from "../hooks/useTranslation";
 import {
   Upload,
   ArrowLeft,
@@ -14,9 +15,6 @@ import {
   Play,
   CheckCircle2,
   AlertTriangle,
-  Cpu,
-  Waves,
-  FlaskConical,
   Fan,
   Brain,
   ChevronDown,
@@ -24,6 +22,9 @@ import {
   Zap,
   Circle,
   ChevronRight,
+  Waves,
+  FlaskConical,
+  Cpu,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
@@ -84,10 +85,9 @@ const LEVEL_COLORS = {
   info: "var(--text-2)",
 };
 
-// Input field definitions
-const INPUT_FIELDS = [
+const getInputFields = (t) => [
   {
-    label: "pH Level",
+    label: t("add_field_ph"),
     name: "pH",
     icon: Droplets,
     color: "var(--green)",
@@ -95,33 +95,37 @@ const INPUT_FIELDS = [
     step: "0.1",
     min: "0",
     max: "14",
+    hint: t("sensor_ph_desc"),
   },
   {
-    label: "EC (mS/cm)",
+    label: t("add_field_ec"),
     name: "EC",
     icon: Activity,
     color: "var(--amber)",
     type: "number",
     step: "0.1",
+    hint: t("sensor_ec_desc"),
   },
   {
-    label: "Temp (°C)",
+    label: t("add_field_temp"),
     name: "temp",
     icon: Thermometer,
     color: "var(--blue)",
     type: "number",
     step: "0.5",
+    hint: t("sensor_temp_desc"),
   },
   {
-    label: "Humidity (%)",
+    label: t("add_field_humidity"),
     name: "humidity",
     icon: Wind,
     color: "#a78bfa",
     type: "number",
     step: "1",
+    hint: t("sensor_humidity_desc"),
   },
   {
-    label: "Crop Type",
+    label: t("add_field_crop_type"),
     name: "crop",
     icon: Sprout,
     color: "var(--green)",
@@ -138,31 +142,23 @@ const INPUT_FIELDS = [
     ],
   },
   {
-    label: "Growth Stage",
+    label: t("add_field_stage"),
     name: "stage",
     icon: Calendar,
     color: "var(--text-3)",
     type: "select",
     opts: ["Seedling", "Vegetative", "Flowering", "Fruiting"],
+    hint: t("add_field_stage_hint"),
   },
   {
-    label: "Batch / Crop ID",
+    label: t("add_field_crop_id"),
     name: "crop_id",
     icon: Database,
     color: "var(--text-3)",
     type: "text",
-    placeholder: "e.g. Batch_A1 (optional)",
+    placeholder: t("add_field_crop_id_placeholder"),
+    hint: t("add_field_crop_id_hint"),
   },
-];
-
-// Cycle status strip
-const CYCLE_PHASES = [
-  { key: "fetch", label: "Fetch", icon: Database },
-  { key: "judge", label: "Judge", icon: Zap },
-  { key: "strategy", label: "Strategy", icon: Brain },
-  { key: "research", label: "Research", icon: Leaf },
-  { key: "plan", label: "Plan", icon: Cpu },
-  { key: "execute", label: "Execute", icon: Play },
 ];
 
 function phaseFromLogs(logs) {
@@ -185,8 +181,7 @@ function phaseFromLogs(logs) {
   return null;
 }
 
-// Single log line
-function LogLine({ entry, idx }) {
+function LogLine({ entry, idx, td }) {
   const agent = AGENT_META[entry.agent] || AGENT_META.SYSTEM;
   const lvlColor = LEVEL_COLORS[entry.level] || LEVEL_COLORS.info;
 
@@ -198,7 +193,7 @@ function LogLine({ entry, idx }) {
         alignItems: "flex-start",
         gap: 10,
         padding: "5px 0",
-        borderBottom: "1px solid rgba(255,255,255,0.03)",
+        borderBottom: "1px solid rgba(128,180,128,0.06)",
         animationDelay: `${idx * 20}ms`,
       }}
     >
@@ -243,7 +238,7 @@ function LogLine({ entry, idx }) {
           marginTop: 1,
         }}
       >
-        {agent.label}
+        {td(agent.label)}
       </span>
       {/* Message */}
       <span
@@ -256,7 +251,7 @@ function LogLine({ entry, idx }) {
           lineHeight: 1.5,
         }}
       >
-        {entry.text}
+        {td(entry.text)}
       </span>
     </div>
   );
@@ -266,6 +261,7 @@ function LogLine({ entry, idx }) {
 export default function AddCrop() {
   const navigate = useNavigate();
   const { refreshData } = useFarmData();
+  const { t, td } = useT();
 
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -279,7 +275,7 @@ export default function AddCrop() {
     crop_id: "",
   });
 
-  const [phase, setPhase] = useState("idle"); // idle | running | done | error
+  const [phase, setPhase] = useState("idle");
   const [logs, setLogs] = useState([]);
   const [cycles, setCycles] = useState(0);
   const [activePhase, setActivePhase] = useState(null);
@@ -380,8 +376,8 @@ export default function AddCrop() {
               if (msg.phase === "done") {
                 setPhase("done");
                 setCycles((c) => c + 1);
-                refreshData(); // Refresh global state
-                showToast("Cycle complete — crop registered ✓");
+                refreshData();
+                showToast(t("add_cycle_done"));
               }
             } catch (e) {
               console.error("Parse error", e);
@@ -393,7 +389,7 @@ export default function AddCrop() {
       console.error(err);
       setPhase("error");
       pushLog(`❌ Connection Error: ${err.message}`, "SYSTEM");
-      showToast("Failed to connect to agent pipeline", "error");
+      showToast(t("add_cycle_fail"), "error");
     }
   }
 
@@ -418,7 +414,17 @@ export default function AddCrop() {
     }
   };
 
+  const CYCLE_PHASES = [
+    { key: "fetch", label: t("add_phase_fetch"), icon: Database },
+    { key: "judge", label: t("add_phase_judge"), icon: Zap },
+    { key: "strategy", label: t("add_phase_strategy"), icon: Brain },
+    { key: "research", label: t("add_phase_research"), icon: Leaf },
+    { key: "plan", label: t("add_phase_plan"), icon: Cpu },
+    { key: "execute", label: t("add_phase_execute"), icon: Play },
+  ];
+
   const phaseIndex = CYCLE_PHASES.findIndex((p) => p.key === activePhase);
+  const INPUT_FIELDS = getInputFields(t);
 
   return (
     <div
@@ -523,10 +529,8 @@ export default function AddCrop() {
           </div>
 
           <div>
-            <h1 className="page-title">Add New Crop</h1>
-            <p className="page-subtitle">
-              Configure parameters · Start cycle · Watch agents reason live
-            </p>
+            <h1 className="page-title">{t("add_title")}</h1>
+            <p className="page-subtitle">{t("add_subtitle")}</p>
           </div>
 
           {/* Cycle counter */}
@@ -555,7 +559,7 @@ export default function AddCrop() {
                   background: "var(--green)",
                 }}
               />
-              {cycles} CYCLE{cycles !== 1 ? "S" : ""} DONE
+              {t("add_cycles_done", { n: cycles, s: cycles !== 1 ? "S" : "" })}
             </div>
           )}
         </header>
@@ -578,7 +582,6 @@ export default function AddCrop() {
             {CYCLE_PHASES.map((p, i) => {
               const done = phaseIndex > i;
               const current = phaseIndex === i;
-              const Icon = p.icon;
               return (
                 <div
                   key={p.key}
@@ -660,7 +663,7 @@ export default function AddCrop() {
           >
             {/* Image upload */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div className="section-label">PLANT IMAGE</div>
+              <div className="section-label">{t("add_plant_image")}</div>
               <label
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
@@ -757,7 +760,7 @@ export default function AddCrop() {
                           color: "var(--text-2)",
                         }}
                       >
-                        Drop crop image
+                        {t("add_drop_image")}
                       </div>
                       <div
                         style={{
@@ -766,7 +769,7 @@ export default function AddCrop() {
                           color: "var(--text-3)",
                         }}
                       >
-                        PNG, JPG · optional but recommended
+                        {t("add_image_hint")}
                       </div>
                     </div>
                   </div>
@@ -800,7 +803,7 @@ export default function AddCrop() {
                   color:
                     phase === "running" || phase === "done"
                       ? "var(--green)"
-                      : "#0c1a0e",
+                      : "var(--btn-on-green)",
                   opacity: phase === "running" ? 0.8 : 1,
                   transition: "all 0.2s",
                   boxShadow:
@@ -809,16 +812,16 @@ export default function AddCrop() {
               >
                 {phase === "running" ? (
                   <>
-                    <Activity size={15} className="animate-spin" /> Running
-                    Agents...
+                    <Activity size={15} className="animate-spin" />{" "}
+                    {t("add_running")}
                   </>
                 ) : phase === "done" ? (
                   <>
-                    <CheckCircle2 size={15} /> Run Another Cycle
+                    <CheckCircle2 size={15} /> {t("add_run_another")}
                   </>
                 ) : (
                   <>
-                    <Play size={15} fill="currentColor" /> Start Monitoring
+                    <Play size={15} fill="currentColor" /> {t("add_start")}
                   </>
                 )}
               </button>
@@ -833,7 +836,7 @@ export default function AddCrop() {
                 border: "1px solid var(--border)",
               }}
             >
-              <div className="section-label">SENSOR PARAMETERS</div>
+              <div className="section-label">{t("add_sensor_params")}</div>
               <div
                 style={{
                   display: "grid",
@@ -853,14 +856,27 @@ export default function AddCrop() {
                     step,
                     min,
                     max,
+                    hint,
                   }) => (
                     <div key={name}>
                       <div
                         className="sensor-label"
-                        style={{ color, marginBottom: 5 }}
+                        style={{ color, marginBottom: 3 }}
                       >
                         {label.toUpperCase()}
                       </div>
+                      {hint && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--text-3)",
+                            marginBottom: 5,
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {hint}
+                        </div>
+                      )}
                       <div style={{ position: "relative" }}>
                         <Icon
                           size={12}
@@ -904,7 +920,7 @@ export default function AddCrop() {
                             >
                               {opts.map((o) => (
                                 <option key={o} value={o}>
-                                  {o}
+                                  {td(o)}
                                 </option>
                               ))}
                             </select>
@@ -1007,10 +1023,10 @@ export default function AddCrop() {
                     }}
                   >
                     {phase === "running"
-                      ? "AGENT PIPELINE — LIVE"
+                      ? t("add_log_live")
                       : phase === "done"
-                        ? "CYCLE COMPLETE"
-                        : "PIPELINE LOG"}
+                        ? t("add_log_done")
+                        : t("add_log_idle")}
                   </span>
                 </div>
                 <span
@@ -1020,7 +1036,7 @@ export default function AddCrop() {
                     color: "var(--text-3)",
                   }}
                 >
-                  {logs.length} lines
+                  {t("add_log_lines", { n: logs.length })}
                 </span>
 
                 {/* Agent legend */}
@@ -1047,7 +1063,7 @@ export default function AddCrop() {
                           border: `1px solid ${v.color}30`,
                         }}
                       >
-                        {v.label}
+                        {td(v.label)}
                       </span>
                     ))}
                 </div>
@@ -1055,16 +1071,16 @@ export default function AddCrop() {
 
               {/* Log body */}
               <div
+                className="log-area"
                 style={{
                   padding: "12px 18px",
                   maxHeight: 340,
                   overflowY: "auto",
-                  background: "#0a1509",
                   fontFamily: "DM Mono, monospace",
                 }}
               >
                 {logs.map((entry, i) => (
-                  <LogLine key={i} entry={entry} idx={i} />
+                  <LogLine key={i} entry={entry} idx={i} td={td} />
                 ))}
                 {phase === "running" && (
                   <div
@@ -1076,14 +1092,6 @@ export default function AddCrop() {
                       marginTop: 2,
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontFamily: "DM Mono, monospace",
-                        color: "var(--text-3)",
-                        minWidth: 28,
-                      }}
-                    />
                     <span
                       style={{
                         fontSize: 12,
@@ -1131,7 +1139,7 @@ export default function AddCrop() {
                     color: "var(--text)",
                   }}
                 >
-                  ACTUATOR COMMANDS DISPATCHED
+                  {t("add_actuator_dispatched")}
                 </span>
               </div>
               <div
@@ -1145,40 +1153,40 @@ export default function AddCrop() {
                 {[
                   {
                     key: "acid_dosage_ml",
-                    label: "Acid",
+                    labelKey: "widget_acid",
                     unit: "ml",
                     icon: FlaskConical,
                     color: "var(--red)",
                   },
                   {
                     key: "base_dosage_ml",
-                    label: "Base",
+                    labelKey: "widget_base",
                     unit: "ml",
                     icon: FlaskConical,
                     color: "#a78bfa",
                   },
                   {
                     key: "nutrient_dosage_ml",
-                    label: "Nutrients",
+                    labelKey: "widget_nutrients",
                     unit: "ml",
                     icon: Sprout,
                     color: "var(--green)",
                   },
                   {
                     key: "fan_speed_pct",
-                    label: "Fan",
+                    labelKey: "widget_fan",
                     unit: "%",
                     icon: Fan,
                     color: "var(--blue)",
                   },
                   {
                     key: "water_refill_l",
-                    label: "Water",
+                    labelKey: "widget_water",
                     unit: "L",
                     icon: Waves,
                     color: "#22d3ee",
                   },
-                ].map(({ key, label, unit, icon: Icon, color }) => {
+                ].map(({ key, labelKey, unit, icon: Icon, color }) => {
                   const val = finalAction[key] ?? 0;
                   const active = parseFloat(val) > 0;
                   return (
@@ -1229,7 +1237,7 @@ export default function AddCrop() {
                           fontWeight: active ? 600 : 400,
                         }}
                       >
-                        {label}
+                        {t(labelKey)}
                       </div>
                     </div>
                   );
@@ -1245,11 +1253,11 @@ export default function AddCrop() {
                     fontWeight: 600,
                     background: "var(--green)",
                     border: "none",
-                    color: "#0c1a0e",
+                    color: "var(--btn-on-green)",
                     cursor: "pointer",
                   }}
                 >
-                  View in Dashboard →
+                  {t("add_view_dashboard")}
                 </button>
                 <button
                   onClick={startCycle}
@@ -1264,7 +1272,7 @@ export default function AddCrop() {
                     cursor: "pointer",
                   }}
                 >
-                  Run Next Cycle
+                  {t("add_run_next")}
                 </button>
               </div>
             </div>

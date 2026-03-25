@@ -11,10 +11,14 @@ import {
   Bell,
   LayoutGrid,
   Zap,
+  Globe,
+  HelpCircle,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import { useSettings } from "../hooks/useSettings";
+import { useT } from "../hooks/useTranslation";
 import { USE_MOCK_DATA } from "../data/mockData";
+import Onboarding from "../components/Onboarding";
 
 function SectionHeader({ icon: Icon, title, sub }) {
   return (
@@ -78,7 +82,9 @@ function FieldRow({ label, hint, children }) {
         {label}
       </label>
       {hint && (
-        <div style={{ fontSize: 11, color: "var(--text-3)" }}>{hint}</div>
+        <div style={{ fontSize: 11, color: "var(--text-3)", lineHeight: 1.5 }}>
+          {hint}
+        </div>
       )}
       {children}
     </div>
@@ -98,13 +104,58 @@ const inputStyle = {
   boxSizing: "border-box",
 };
 
+function Toggle({ value, onChange, enabledLabel, disabledLabel }) {
+  return (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        cursor: "pointer",
+        marginTop: 6,
+      }}
+    >
+      <div
+        onClick={() => onChange(!value)}
+        style={{
+          width: 44,
+          height: 24,
+          borderRadius: 12,
+          background: value ? "var(--green)" : "var(--border)",
+          position: "relative",
+          cursor: "pointer",
+          transition: "background 0.2s",
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: 3,
+            left: value ? 23 : 3,
+            width: 18,
+            height: 18,
+            borderRadius: "50%",
+            background: "white",
+            transition: "left 0.2s",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+          }}
+        />
+      </div>
+      <span style={{ fontSize: 13, color: "var(--text-2)" }}>
+        {value ? enabledLabel : disabledLabel}
+      </span>
+    </label>
+  );
+}
+
 export default function SettingsPage() {
   const { settings, update, reset } = useSettings();
+  const { t } = useT();
   const [saved, setSaved] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Local draft so we can save all at once
   const [draft, setDraft] = useState({ ...settings });
-
   const set = (key, val) => setDraft((d) => ({ ...d, [key]: val }));
 
   const handleSave = () => {
@@ -142,6 +193,39 @@ export default function SettingsPage() {
     </button>
   );
 
+  const LangButton = ({ value, label }) => (
+    <button
+      onClick={() => set("language", value)}
+      style={{
+        flex: 1,
+        padding: "14px 12px",
+        borderRadius: 12,
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        background:
+          draft.language === value ? "rgba(74,222,128,0.12)" : "var(--bg-3)",
+        border: `2px solid ${draft.language === value ? "var(--green)" : "var(--border)"}`,
+        color: draft.language === value ? "var(--green)" : "var(--text-3)",
+        transition: "all 0.15s",
+      }}
+    >
+      <Globe size={18} />
+      <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+      <span
+        style={{
+          fontSize: 10,
+          fontFamily: "DM Mono, monospace",
+          opacity: 0.6,
+        }}
+      >
+        {value.toUpperCase()}
+      </span>
+    </button>
+  );
+
   return (
     <div
       style={{
@@ -152,6 +236,15 @@ export default function SettingsPage() {
       }}
     >
       <Sidebar />
+
+      {showOnboarding && (
+        <Onboarding
+          onDone={() => {
+            update("onboardingDone", true);
+            setShowOnboarding(false);
+          }}
+        />
+      )}
 
       <main
         style={{
@@ -175,10 +268,8 @@ export default function SettingsPage() {
           }}
         >
           <div>
-            <h1 className="page-title">Settings</h1>
-            <p className="page-subtitle">
-              Preferences, appearance &amp; account
-            </p>
+            <h1 className="page-title">{t("settings_title")}</h1>
+            <p className="page-subtitle">{t("settings_subtitle")}</p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button
@@ -196,7 +287,7 @@ export default function SettingsPage() {
                 cursor: "pointer",
               }}
             >
-              <RotateCcw size={13} /> Reset
+              <RotateCcw size={13} /> {t("settings_reset")}
             </button>
             <button
               onClick={handleSave}
@@ -210,18 +301,18 @@ export default function SettingsPage() {
                 fontWeight: 600,
                 background: saved ? "rgba(74,222,128,0.2)" : "var(--green)",
                 border: saved ? "1px solid var(--green)" : "none",
-                color: saved ? "var(--green)" : "#0c1a0e",
+                color: saved ? "var(--green)" : "var(--btn-on-green)",
                 cursor: "pointer",
                 transition: "all 0.2s",
               }}
             >
               {saved ? (
                 <>
-                  <Check size={13} /> Saved!
+                  <Check size={13} /> {t("settings_saved")}
                 </>
               ) : (
                 <>
-                  <Save size={13} /> Save Changes
+                  <Save size={13} /> {t("settings_save")}
                 </>
               )}
             </button>
@@ -241,8 +332,8 @@ export default function SettingsPage() {
             <Card>
               <SectionHeader
                 icon={User}
-                title="Profile"
-                sub="Your name and role shown in the sidebar"
+                title={t("settings_profile")}
+                sub={t("settings_profile_sub")}
               />
               <div
                 style={{
@@ -251,7 +342,7 @@ export default function SettingsPage() {
                   gap: 16,
                 }}
               >
-                <FieldRow label="Display Name">
+                <FieldRow label={t("settings_display_name")}>
                   <input
                     style={inputStyle}
                     value={draft.userName}
@@ -259,7 +350,7 @@ export default function SettingsPage() {
                     placeholder="Your name"
                   />
                 </FieldRow>
-                <FieldRow label="Designation">
+                <FieldRow label={t("settings_designation")}>
                   <input
                     style={inputStyle}
                     value={draft.userDesignation}
@@ -268,8 +359,8 @@ export default function SettingsPage() {
                   />
                 </FieldRow>
                 <FieldRow
-                  label="Initials"
-                  hint="Shown in the sidebar avatar (max 2 chars)"
+                  label={t("settings_initials")}
+                  hint={t("settings_initials_hint")}
                 >
                   <input
                     style={{ ...inputStyle, maxWidth: 100 }}
@@ -291,77 +382,113 @@ export default function SettingsPage() {
             <Card>
               <SectionHeader
                 icon={Sun}
-                title="Appearance"
-                sub="Theme and display options"
+                title={t("settings_appearance")}
+                sub={t("settings_appearance_sub")}
               />
               <FieldRow
-                label="Theme"
-                hint="Controls the overall color scheme of the application"
+                label={t("settings_theme")}
+                hint={t("settings_theme_hint")}
               >
                 <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                  <ThemeButton value="dark" label="Dark" Icon={Moon} />
-                  <ThemeButton value="light" label="Light" Icon={Sun} />
-                  <ThemeButton value="auto" label="System" Icon={Monitor} />
+                  <ThemeButton
+                    value="dark"
+                    label={t("settings_dark")}
+                    Icon={Moon}
+                  />
+                  <ThemeButton
+                    value="light"
+                    label={t("settings_light")}
+                    Icon={Sun}
+                  />
+                  <ThemeButton
+                    value="auto"
+                    label={t("settings_system")}
+                    Icon={Monitor}
+                  />
                 </div>
               </FieldRow>
 
               <div style={{ marginTop: 20 }}>
                 <FieldRow
-                  label="Compact Mode"
-                  hint="Reduces spacing for denser information display"
+                  label={t("settings_compact")}
+                  hint={t("settings_compact_hint")}
                 >
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      cursor: "pointer",
-                      marginTop: 6,
-                    }}
-                  >
-                    <div
-                      onClick={() => set("compactMode", !draft.compactMode)}
-                      style={{
-                        width: 44,
-                        height: 24,
-                        borderRadius: 12,
-                        background: draft.compactMode
-                          ? "var(--green)"
-                          : "var(--border)",
-                        position: "relative",
-                        cursor: "pointer",
-                        transition: "background 0.2s",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 3,
-                          left: draft.compactMode ? 23 : 3,
-                          width: 18,
-                          height: 18,
-                          borderRadius: "50%",
-                          background: "white",
-                          transition: "left 0.2s",
-                          boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
-                        }}
-                      />
-                    </div>
-                    <span style={{ fontSize: 13, color: "var(--text-2)" }}>
-                      {draft.compactMode ? "Enabled" : "Disabled"}
-                    </span>
-                  </label>
+                  <Toggle
+                    value={draft.compactMode}
+                    onChange={(v) => set("compactMode", v)}
+                    enabledLabel={t("common_enabled")}
+                    disabledLabel={t("common_disabled")}
+                  />
                 </FieldRow>
               </div>
             </Card>
 
-            {/* Data */}
+            {/* Language */}
+            <Card>
+              <SectionHeader
+                icon={Globe}
+                title={t("settings_language")}
+                sub={t("settings_language_sub")}
+              />
+              <div style={{ display: "flex", gap: 12 }}>
+                <LangButton value="en" label={t("settings_lang_en")} />
+                <LangButton value="hi" label={t("settings_lang_hi")} />
+              </div>
+              {draft.language === "hi" && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    background: "rgba(74,222,128,0.07)",
+                    border: "1px solid rgba(74,222,128,0.2)",
+                    fontSize: 12,
+                    color: "var(--text-2)",
+                    fontFamily: "Noto Sans Devanagari, sans-serif",
+                  }}
+                >
+                  हिंदी भाषा चुनी गई है। सहेजने के बाद पूरा ऐप हिंदी में दिखेगा।
+                </div>
+              )}
+            </Card>
+
+            {/* Help & Onboarding */}
+            <Card>
+              <SectionHeader
+                icon={HelpCircle}
+                title={t("settings_onboarding")}
+                sub={t("settings_onboarding_sub")}
+              />
+              <button
+                onClick={() => {
+                  update("onboardingDone", false);
+                  setShowOnboarding(true);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 20px",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: "rgba(74,222,128,0.1)",
+                  border: "1px solid rgba(74,222,128,0.3)",
+                  color: "var(--green)",
+                  cursor: "pointer",
+                }}
+              >
+                <HelpCircle size={14} />
+                {t("settings_restart_onboarding")}
+              </button>
+            </Card>
+
+            {/* Display */}
             <Card>
               <SectionHeader
                 icon={LayoutGrid}
-                title="Display"
-                sub="Pagination and results"
+                title={t("settings_display_section")}
+                sub={t("settings_display_sub")}
               />
               <div
                 style={{
@@ -371,8 +498,8 @@ export default function SettingsPage() {
                 }}
               >
                 <FieldRow
-                  label="Max Crops Per Page"
-                  hint="Dashboard grid page size"
+                  label={t("settings_max_crops")}
+                  hint={t("settings_max_crops_hint")}
                 >
                   <select
                     style={inputStyle}
@@ -383,14 +510,14 @@ export default function SettingsPage() {
                   >
                     {[6, 8, 12, 16, 24].map((n) => (
                       <option key={n} value={n}>
-                        {n} per page
+                        {n} {t("common_per_page")}
                       </option>
                     ))}
                   </select>
                 </FieldRow>
                 <FieldRow
-                  label="History Log Limit"
-                  hint="Max entries shown in crop event log"
+                  label={t("settings_history_limit")}
+                  hint={t("settings_history_hint")}
                 >
                   <select
                     style={inputStyle}
@@ -401,7 +528,7 @@ export default function SettingsPage() {
                   >
                     {[10, 20, 50, 100].map((n) => (
                       <option key={n} value={n}>
-                        Last {n} entries
+                        {t("common_last")} {n} {t("common_entries")}
                       </option>
                     ))}
                   </select>
@@ -413,56 +540,16 @@ export default function SettingsPage() {
             <Card>
               <SectionHeader
                 icon={Bell}
-                title="Alerts"
-                sub="Notification preferences"
+                title={t("settings_alerts_section")}
+                sub={t("settings_alerts_sub")}
               />
-              <FieldRow label="Show Acknowledged Alerts by Default">
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    cursor: "pointer",
-                    marginTop: 6,
-                  }}
-                >
-                  <div
-                    onClick={() =>
-                      set("alertsShowAcked", !draft.alertsShowAcked)
-                    }
-                    style={{
-                      width: 44,
-                      height: 24,
-                      borderRadius: 12,
-                      background: draft.alertsShowAcked
-                        ? "var(--green)"
-                        : "var(--border)",
-                      position: "relative",
-                      cursor: "pointer",
-                      transition: "background 0.2s",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 3,
-                        left: draft.alertsShowAcked ? 23 : 3,
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        background: "white",
-                        transition: "left 0.2s",
-                        boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
-                      }}
-                    />
-                  </div>
-                  <span style={{ fontSize: 13, color: "var(--text-2)" }}>
-                    {draft.alertsShowAcked
-                      ? "Showing all"
-                      : "Hiding acknowledged"}
-                  </span>
-                </label>
+              <FieldRow label={t("settings_show_acked")}>
+                <Toggle
+                  value={draft.alertsShowAcked}
+                  onChange={(v) => set("alertsShowAcked", v)}
+                  enabledLabel={t("common_showing_all")}
+                  disabledLabel={t("common_hiding_acked")}
+                />
               </FieldRow>
             </Card>
 
@@ -470,8 +557,8 @@ export default function SettingsPage() {
             <Card>
               <SectionHeader
                 icon={Database}
-                title="Data Source"
-                sub="Backend connection settings"
+                title={t("settings_data_source")}
+                sub={t("settings_data_sub")}
               />
               <div
                 style={{
@@ -502,8 +589,8 @@ export default function SettingsPage() {
                     }}
                   >
                     {USE_MOCK_DATA
-                      ? "Mock Data Mode"
-                      : "Live Backend Connected"}
+                      ? t("settings_mock_mode")
+                      : t("settings_live_mode")}
                   </div>
                   <div
                     style={{
@@ -513,7 +600,7 @@ export default function SettingsPage() {
                     }}
                   >
                     {USE_MOCK_DATA
-                      ? "To connect to live data, set USE_MOCK_DATA = false in src/data/mockData.js"
+                      ? t("settings_mock_hint")
                       : `Connected to ${process.env.REACT_APP_FARM_API_URL || "http://localhost:3001/api"}`}
                   </div>
                 </div>

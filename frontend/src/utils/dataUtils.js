@@ -69,6 +69,15 @@ export const extractSensors = (payload) => {
 // Plant maturity (based on cycle count)
 export const calculateMaturity = (seq) => Math.min((seq || 1) * 10, 100);
 
+// Returns true if the crop is ready to harvest
+// Criteria: maturity >= 80% AND not in Critical status
+export const isReadyToHarvest = (payload) => {
+  if (!payload) return false;
+  const maturity = calculateMaturity(payload.sequence_number);
+  const status = deriveCropStatus(payload);
+  return maturity >= 80 && status !== "Critical";
+};
+
 // Outcome string formatting
 export const formatOutcome = (outcome) => {
   if (!outcome || typeof outcome !== "string") return "Monitoring...";
@@ -138,20 +147,79 @@ export const deriveCropStatus = (payload) => {
 };
 
 // Alert generation
-function timeAgo(isoString) {
-  if (!isoString) return "unknown";
+function timeAgo(isoString, t) {
+  if (!isoString) return t("common_unknown");
   const diff = Date.now() - new Date(isoString).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1) return t("common_time_just_now");
+  if (mins < 60) return t("common_time_min_ago", { n: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hr ago`;
+  if (hrs < 24) return t("common_time_hr_ago", { n: hrs });
   const days = Math.floor(hrs / 24);
-  if (days === 1) return "1 day ago";
-  return `${days} days ago`;
+  if (days === 1) return t("common_time_day_ago", { n: 1 });
+  return t("common_time_days_ago", { n: days });
 }
 
-export const generateAlerts = (points) => {
+// Generate alerts from data points
+export const generateAlerts = (points, t) => {
+  // Default translate
+  const _t =
+    t ||
+    ((key, vars = {}) => {
+      const en = {
+        alert_harvest_title: "Crop ready for harvest",
+        alert_harvest_desc:
+          "{crop} ({id}) has reached {pct}% maturity — time to harvest!",
+        alert_ph_low_title: "pH critically low",
+        alert_ph_low_desc:
+          "{crop} ({id}): pH at {val} — immediate base dosing required.",
+        alert_ph_high_title: "pH critically high",
+        alert_ph_high_desc:
+          "{crop} ({id}): pH at {val} — acid dosing required immediately.",
+        alert_ec_high_title: "EC dangerously high",
+        alert_ec_high_desc:
+          "{crop} ({id}): EC at {val} dS/m — severe nutrient burn risk.",
+        alert_temp_cold_title: "Temperature too cold",
+        alert_temp_cold_desc:
+          "{crop} ({id}): Air temp at {val}°C — root damage risk.",
+        alert_temp_hot_title: "Temperature too hot",
+        alert_temp_hot_desc:
+          "{crop} ({id}): Air temp at {val}°C — heat stress and root rot risk.",
+        alert_disease_title: "Disease or pest detected",
+        alert_disease_desc:
+          '{crop} ({id}): Visual anomaly. Outcome: "{outcome}"',
+        alert_cycle_fail_title: "Cycle failure recorded",
+        alert_cycle_fail_desc: '{crop} ({id}): Seq #{seq} outcome: "{outcome}"',
+        alert_ph_warn_low_title: "pH below optimal range",
+        alert_ph_warn_desc: "{crop} ({id}): pH at {val}. Target 5.5–6.5.",
+        alert_ph_warn_high_title: "pH above optimal range",
+        alert_ec_warn_title: "EC approaching high limit",
+        alert_ec_warn_desc:
+          "{crop} ({id}): EC at {val} dS/m — nutrient burn risk increasing.",
+        alert_temp_warn_low_title: "Temperature on the low side",
+        alert_temp_warn_low_desc:
+          "{crop} ({id}): {val}°C — slow growth expected.",
+        alert_temp_warn_high_title: "Temperature elevated",
+        alert_temp_warn_high_desc:
+          "{crop} ({id}): {val}°C — heat stress likely.",
+        alert_deteriorating_title: "Condition deteriorating",
+        alert_deteriorating_desc: '{crop} ({id}): Seq #{seq} — "{outcome}"',
+        alert_cycle_done_title: "Cycle #{seq} completed",
+        alert_cycle_done_desc: "{crop} ({id}): Sequence stored. {extra}",
+        common_time_just_now: "just now",
+        common_time_min_ago: "{n} min ago",
+        common_time_hr_ago: "{n} hr ago",
+        common_time_day_ago: "1 day ago",
+        common_time_days_ago: "{n} days ago",
+        common_unknown: "Unknown",
+      };
+      let str = en[key] ?? key;
+      Object.entries(vars).forEach(([k, v]) => {
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+      });
+      return str;
+    });
+
   const alerts = [];
   let id = 1;
 
@@ -168,15 +236,45 @@ export const generateAlerts = (points) => {
     const outcome = (payload.outcome || "").toLowerCase();
     const strategy = (payload.strategic_intent || "").toUpperCase();
     const seq = payload.sequence_number;
+    const outcomeFormatted = formatOutcome(payload.outcome);
+
+    // HARVEST READY ALERT
+    if (isReadyToHarvest(payload)) {
+      const maturity = calculateMaturity(seq);
+      alerts.push({
+        id: id++,
+        severity: "info",
+        titleKey: "alert_harvest_title",
+        descKey: "alert_harvest_desc",
+        title: _t("alert_harvest_title"),
+        desc: _t("alert_harvest_desc", {
+          crop: cropName,
+          id: cropId,
+          pct: maturity,
+        }),
+        time: timeAgo(ts, _t),
+        ts,
+        agent: "SUPERVISOR",
+        crop: cropName,
+        ack: false,
+        isHarvestAlert: true,
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, pct: maturity },
+      });
+    }
 
     // Critical
     if (ph > 0 && ph < 4.5)
       alerts.push({
         id: id++,
         severity: "critical",
-        title: "pH critically low",
-        desc: `${cropName} (${cropId}): pH at ${ph} — immediate base dosing required.`,
-        time: timeAgo(ts),
+        title: _t("alert_ph_low_title"),
+        desc: _t("alert_ph_low_desc", { crop: cropName, id: cropId, val: ph }),
+        titleKey: "alert_ph_low_title",
+        descKey: "alert_ph_low_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: ph },
+        time: timeAgo(ts, _t),
         ts,
         agent: "WATER",
         crop: cropName,
@@ -186,9 +284,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "critical",
-        title: "pH critically high",
-        desc: `${cropName} (${cropId}): pH at ${ph} — acid dosing required immediately.`,
-        time: timeAgo(ts),
+        title: _t("alert_ph_high_title"),
+        desc: _t("alert_ph_high_desc", {
+          crop: cropName,
+          id: cropId,
+          val: ph,
+        }),
+        titleKey: "alert_ph_high_title",
+        descKey: "alert_ph_high_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: ph },
+        time: timeAgo(ts, _t),
         ts,
         agent: "WATER",
         crop: cropName,
@@ -199,9 +305,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "critical",
-        title: "EC dangerously high",
-        desc: `${cropName} (${cropId}): EC at ${ec} dS/m — severe nutrient burn risk.`,
-        time: timeAgo(ts),
+        title: _t("alert_ec_high_title"),
+        desc: _t("alert_ec_high_desc", {
+          crop: cropName,
+          id: cropId,
+          val: ec,
+        }),
+        titleKey: "alert_ec_high_title",
+        descKey: "alert_ec_high_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: ec },
+        time: timeAgo(ts, _t),
         ts,
         agent: "WATER",
         crop: cropName,
@@ -212,9 +326,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "critical",
-        title: "Temperature too cold",
-        desc: `${cropName} (${cropId}): Air temp at ${temp}°C — root damage risk.`,
-        time: timeAgo(ts),
+        title: _t("alert_temp_cold_title"),
+        desc: _t("alert_temp_cold_desc", {
+          crop: cropName,
+          id: cropId,
+          val: temp,
+        }),
+        titleKey: "alert_temp_cold_title",
+        descKey: "alert_temp_cold_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: temp },
+        time: timeAgo(ts, _t),
         ts,
         agent: "ATMOSPHERIC",
         crop: cropName,
@@ -224,9 +346,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "critical",
-        title: "Temperature too hot",
-        desc: `${cropName} (${cropId}): Air temp at ${temp}°C — heat stress and root rot risk.`,
-        time: timeAgo(ts),
+        title: _t("alert_temp_hot_title"),
+        desc: _t("alert_temp_hot_desc", {
+          crop: cropName,
+          id: cropId,
+          val: temp,
+        }),
+        titleKey: "alert_temp_hot_title",
+        descKey: "alert_temp_hot_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: temp },
+        time: timeAgo(ts, _t),
         ts,
         agent: "ATMOSPHERIC",
         crop: cropName,
@@ -240,9 +370,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "critical",
-        title: "Disease or pest detected",
-        desc: `${cropName} (${cropId}): Visual anomaly. Outcome: "${formatOutcome(payload.outcome)}"`,
-        time: timeAgo(ts),
+        title: _t("alert_disease_title"),
+        desc: _t("alert_disease_desc", {
+          crop: cropName,
+          id: cropId,
+          outcome: outcomeFormatted,
+        }),
+        titleKey: "alert_disease_title",
+        descKey: "alert_disease_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, outcome: outcomeFormatted },
+        time: timeAgo(ts, _t),
         ts,
         agent: "DOCTOR",
         crop: cropName,
@@ -253,9 +391,23 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "critical",
-        title: "Cycle failure recorded",
-        desc: `${cropName} (${cropId}): Seq #${seq} outcome: "${formatOutcome(payload.outcome)}"`,
-        time: timeAgo(ts),
+        title: _t("alert_cycle_fail_title"),
+        desc: _t("alert_cycle_fail_desc", {
+          crop: cropName,
+          id: cropId,
+          seq,
+          outcome: outcomeFormatted,
+        }),
+        titleKey: "alert_cycle_fail_title",
+        descKey: "alert_cycle_fail_desc",
+        titleVars: {},
+        descVars: {
+          crop: cropName,
+          id: cropId,
+          seq,
+          outcome: outcomeFormatted,
+        },
+        time: timeAgo(ts, _t),
         ts,
         agent: "JUDGE",
         crop: cropName,
@@ -267,9 +419,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "warning",
-        title: "pH below optimal range",
-        desc: `${cropName} (${cropId}): pH at ${ph}. Target 5.5–6.5.`,
-        time: timeAgo(ts),
+        title: _t("alert_ph_warn_low_title"),
+        desc: _t("alert_ph_warn_desc", {
+          crop: cropName,
+          id: cropId,
+          val: ph,
+        }),
+        titleKey: "alert_ph_warn_low_title",
+        descKey: "alert_ph_warn_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: ph },
+        time: timeAgo(ts, _t),
         ts,
         agent: "WATER",
         crop: cropName,
@@ -279,9 +439,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "warning",
-        title: "pH above optimal range",
-        desc: `${cropName} (${cropId}): pH at ${ph}. Target 5.5–6.5.`,
-        time: timeAgo(ts),
+        title: _t("alert_ph_warn_high_title"),
+        desc: _t("alert_ph_warn_desc", {
+          crop: cropName,
+          id: cropId,
+          val: ph,
+        }),
+        titleKey: "alert_ph_warn_high_title",
+        descKey: "alert_ph_warn_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: ph },
+        time: timeAgo(ts, _t),
         ts,
         agent: "WATER",
         crop: cropName,
@@ -292,9 +460,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "warning",
-        title: "EC approaching high limit",
-        desc: `${cropName} (${cropId}): EC at ${ec} dS/m — nutrient burn risk increasing.`,
-        time: timeAgo(ts),
+        title: _t("alert_ec_warn_title"),
+        desc: _t("alert_ec_warn_desc", {
+          crop: cropName,
+          id: cropId,
+          val: ec,
+        }),
+        titleKey: "alert_ec_warn_title",
+        descKey: "alert_ec_warn_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: ec },
+        time: timeAgo(ts, _t),
         ts,
         agent: "SUPERVISOR",
         crop: cropName,
@@ -305,9 +481,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "warning",
-        title: "Temperature on the low side",
-        desc: `${cropName} (${cropId}): ${temp}°C — slow growth expected.`,
-        time: timeAgo(ts),
+        title: _t("alert_temp_warn_low_title"),
+        desc: _t("alert_temp_warn_low_desc", {
+          crop: cropName,
+          id: cropId,
+          val: temp,
+        }),
+        titleKey: "alert_temp_warn_low_title",
+        descKey: "alert_temp_warn_low_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: temp },
+        time: timeAgo(ts, _t),
         ts,
         agent: "ATMOSPHERIC",
         crop: cropName,
@@ -317,9 +501,17 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "warning",
-        title: "Temperature elevated",
-        desc: `${cropName} (${cropId}): ${temp}°C — heat stress likely.`,
-        time: timeAgo(ts),
+        title: _t("alert_temp_warn_high_title"),
+        desc: _t("alert_temp_warn_high_desc", {
+          crop: cropName,
+          id: cropId,
+          val: temp,
+        }),
+        titleKey: "alert_temp_warn_high_title",
+        descKey: "alert_temp_warn_high_desc",
+        titleVars: {},
+        descVars: { crop: cropName, id: cropId, val: temp },
+        time: timeAgo(ts, _t),
         ts,
         agent: "ATMOSPHERIC",
         crop: cropName,
@@ -330,9 +522,23 @@ export const generateAlerts = (points) => {
       alerts.push({
         id: id++,
         severity: "warning",
-        title: "Condition deteriorating",
-        desc: `${cropName} (${cropId}): Seq #${seq} — "${formatOutcome(payload.outcome)}"`,
-        time: timeAgo(ts),
+        title: _t("alert_deteriorating_title"),
+        desc: _t("alert_deteriorating_desc", {
+          crop: cropName,
+          id: cropId,
+          seq,
+          outcome: outcomeFormatted,
+        }),
+        titleKey: "alert_deteriorating_title",
+        descKey: "alert_deteriorating_desc",
+        titleVars: {},
+        descVars: {
+          crop: cropName,
+          id: cropId,
+          seq,
+          outcome: outcomeFormatted,
+        },
+        time: timeAgo(ts, _t),
         ts,
         agent: "JUDGE",
         crop: cropName,
@@ -340,25 +546,40 @@ export const generateAlerts = (points) => {
       });
 
     // Info
-    if (seq && !/fail|critical|error|deteriorat|negative/.test(outcome))
+    if (seq && !/fail|critical|error|deteriorat|negative/.test(outcome)) {
+      const extra = [
+        strategy ? `Strategy: ${strategy}.` : "",
+        payload.reward_score != null ? `Reward: ${payload.reward_score}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
       alerts.push({
         id: id++,
         severity: "info",
-        title: `Cycle #${seq} completed`,
-        desc: `${cropName} (${cropId}): Sequence stored. ${strategy ? `Strategy: ${strategy}.` : ""} ${payload.reward_score != null ? `Reward: ${payload.reward_score}` : ""}`.trim(),
-        time: timeAgo(ts),
+        title: _t("alert_cycle_done_title", { seq }),
+        desc: _t("alert_cycle_done_desc", {
+          crop: cropName,
+          id: cropId,
+          extra,
+        }).trim(),
+        titleKey: "alert_cycle_done_title",
+        descKey: "alert_cycle_done_desc",
+        titleVars: { seq },
+        descVars: { crop: cropName, id: cropId, extra },
+        time: timeAgo(ts, _t),
         ts,
         agent: strategy ? "SUPERVISOR" : "JUDGE",
         crop: cropName,
         ack: true,
       });
+    }
   }
 
   // Deduplicate — max 2 per severity+title+crop
   const seen = new Map();
   const deduped = [];
   for (const a of alerts) {
-    const key = `${a.severity}|${a.title}|${a.crop}`;
+    const key = `${a.severity}|${a.titleKey}|${a.crop}`;
     const count = seen.get(key) || 0;
     if (count < 2) {
       deduped.push(a);
@@ -367,11 +588,13 @@ export const generateAlerts = (points) => {
   }
 
   const sevOrder = { critical: 0, warning: 1, info: 2 };
-  deduped.sort((a, b) =>
-    sevOrder[a.severity] !== sevOrder[b.severity]
+  deduped.sort((a, b) => {
+    if (a.isHarvestAlert && !b.isHarvestAlert) return -1;
+    if (!a.isHarvestAlert && b.isHarvestAlert) return 1;
+    return sevOrder[a.severity] !== sevOrder[b.severity]
       ? sevOrder[a.severity] - sevOrder[b.severity]
-      : new Date(b.ts || 0) - new Date(a.ts || 0),
-  );
+      : new Date(b.ts || 0) - new Date(a.ts || 0);
+  });
 
   return deduped;
 };

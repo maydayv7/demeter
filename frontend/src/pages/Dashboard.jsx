@@ -2,10 +2,12 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFarmData } from "../hooks/useFarmData";
 import { useSettings } from "../hooks/useSettings";
+import { useT } from "../hooks/useTranslation";
 import {
   extractSensors,
   calculateMaturity,
   deriveCropStatus,
+  isReadyToHarvest,
 } from "../utils/dataUtils";
 import {
   Search,
@@ -22,12 +24,24 @@ import {
   ChevronLeft,
   ChevronRight,
   PlusCircle,
+  Scissors,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
-const STAGES = ["All", "Seedling", "Vegetative", "Flowering", "Fruiting"];
+const STAGES_KEYS = [
+  "stage_all",
+  "stage_seedling",
+  "stage_vegetative",
+  "stage_flowering",
+  "stage_fruiting",
+];
 const CROPS = ["All", "Lettuce", "Tomato", "Basil", "Spinach", "Cucumber"];
-const STATUSES = ["All", "Healthy", "Attention", "Critical"];
+const STATUSES_KEYS = [
+  "stage_all",
+  "dash_healthy",
+  "dash_attention",
+  "dash_critical",
+];
 
 const STATUS_COLORS = {
   Healthy: {
@@ -47,9 +61,17 @@ const STATUS_COLORS = {
   },
 };
 
-function CropCard({ data, onClick }) {
+function CropCard({ data, onClick, t, td }) {
   const st = STATUS_COLORS[data.status] || STATUS_COLORS.Healthy;
   const maturity = data.maturity || 40;
+
+  // Map backend status to translation key
+  const statusKey =
+    data.status === "Healthy"
+      ? "dash_healthy"
+      : data.status === "Attention"
+        ? "dash_attention"
+        : "dash_critical";
 
   return (
     <div
@@ -60,12 +82,47 @@ function CropCard({ data, onClick }) {
         overflow: "hidden",
         cursor: "pointer",
         background: "var(--surface)",
-        border: "1px solid var(--border)",
+        border: data.harvestReady
+          ? "2px solid rgba(245,158,11,0.5)"
+          : "1px solid var(--border)",
+        position: "relative",
       }}
     >
+      {/* Harvest Ready Banner */}
+      {data.harvestReady && (
+        <div
+          className="harvest-badge"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 5,
+            padding: "5px 10px",
+            background: "rgba(245,158,11,0.92)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            fontSize: 11,
+            fontFamily: "DM Mono, monospace",
+            fontWeight: 700,
+            color: "#1a0a00",
+          }}
+        >
+          <Scissors size={11} />
+          {t("dash_harvest_badge")}
+        </div>
+      )}
+
       {/* Image header */}
       <div
-        style={{ position: "relative", height: 130, background: "var(--bg-3)" }}
+        style={{
+          position: "relative",
+          height: 130,
+          background: "var(--bg-3)",
+          marginTop: data.harvestReady ? 27 : 0,
+        }}
       >
         <div
           style={{
@@ -123,7 +180,7 @@ function CropCard({ data, onClick }) {
             border: `1px solid ${st.border}`,
           }}
         >
-          {data.status.toUpperCase()}
+          {t(statusKey).toUpperCase()}
         </div>
         {/* Seq badge */}
         <div
@@ -154,7 +211,7 @@ function CropCard({ data, onClick }) {
         {/* Name */}
         <div>
           <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>
-            {data.name}
+            {td(data.name)}
           </div>
           <div
             style={{
@@ -164,7 +221,7 @@ function CropCard({ data, onClick }) {
               color: "var(--text-3)",
             }}
           >
-            {data.cropId} · {data.statusMsg}
+            {data.cropId} · {td(data.statusMsg)}
           </div>
         </div>
 
@@ -184,13 +241,13 @@ function CropCard({ data, onClick }) {
                 color: "var(--text-3)",
               }}
             >
-              Maturity
+              {t("dash_maturity")}
             </span>
             <span
               style={{
                 fontSize: 11,
                 fontFamily: "DM Mono, monospace",
-                color: "var(--green)",
+                color: maturity >= 80 ? "var(--amber)" : "var(--green)",
                 fontWeight: 600,
               }}
             >
@@ -207,10 +264,10 @@ function CropCard({ data, onClick }) {
                 height: "100%",
                 borderRadius: 2,
                 background:
-                  maturity > 70
-                    ? "var(--green)"
+                  maturity >= 80
+                    ? "var(--amber)"
                     : maturity > 40
-                      ? "var(--amber)"
+                      ? "var(--green)"
                       : "var(--text-3)",
               }}
             />
@@ -257,11 +314,23 @@ function CropCard({ data, onClick }) {
               alignItems: "center",
               gap: 4,
               fontSize: 11,
-              color: "var(--text-3)",
+              color: data.harvestReady ? "var(--amber)" : "var(--text-3)",
+              fontWeight: data.harvestReady ? 600 : 400,
             }}
           >
-            <Clock size={10} />
-            {data.daysLeft > 0 ? `${data.daysLeft}d left` : "Ready"}
+            {data.harvestReady ? (
+              <>
+                <Scissors size={10} />
+                {t("dash_ready")}
+              </>
+            ) : (
+              <>
+                <Clock size={10} />
+                {data.daysLeft > 0
+                  ? t("dash_days_left", { n: data.daysLeft })
+                  : t("dash_ready")}
+              </>
+            )}
           </div>
           <ArrowUpRight size={14} style={{ color: "var(--text-3)" }} />
         </div>
@@ -270,7 +339,7 @@ function CropCard({ data, onClick }) {
   );
 }
 
-function AddCropCard({ onClick }) {
+function AddCropCard({ onClick, t }) {
   return (
     <div
       onClick={onClick}
@@ -315,7 +384,7 @@ function AddCropCard({ onClick }) {
       </div>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: "var(--green)" }}>
-          Add New Crop
+          {t("dash_add_crop")}
         </div>
         <div
           style={{
@@ -325,7 +394,7 @@ function AddCropCard({ onClick }) {
             fontFamily: "DM Mono, monospace",
           }}
         >
-          Start a new cycle · configure sensors
+          {t("add_subtitle")}
         </div>
       </div>
     </div>
@@ -336,6 +405,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { dashboard, loading, refreshData } = useFarmData();
   const { settings } = useSettings();
+  const { t, td } = useT();
   const pageSize = settings.maxResultsPerPage || 12;
 
   const [crops, setCrops] = useState([]);
@@ -343,6 +413,7 @@ export default function Dashboard() {
   const [filterStage, setFilterStage] = useState("All");
   const [filterCrop, setFilterCrop] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
+  const [filterReady, setFilterReady] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -364,25 +435,33 @@ export default function Dashboard() {
         dashboard.map((item) => {
           const p = item.payload || {};
           const sensors = extractSensors(p);
+          const rawStage = p.stage || "";
+
           return {
             id: p.crop_id || item.id,
             cropId: p.crop_id || "—",
-            name: p.crop || "Unknown",
-            statusMsg: p.stage || "Growing",
+            name: p.crop || t("common_unknown"),
+            statusMsg: rawStage ? rawStage : t("dash_status_growing"),
             image: getImg(p.crop),
             status: deriveCropStatus(p),
             maturity: calculateMaturity(p.sequence_number),
+            harvestReady: isReadyToHarvest(p),
             seq: p.sequence_number,
             daysLeft: 30 - (p.sequence_number || 0),
             sensors: { temp: sensors.temp, ph: sensors.ph },
-            stage: p.stage || "",
+            stage: rawStage,
             rawCrop: (p.crop || "").trim(),
           };
         }),
       );
       setPage(1);
     }
-  }, [dashboard]);
+  }, [dashboard, t]);
+
+  const harvestReadyCrops = useMemo(
+    () => crops.filter((c) => c.harvestReady),
+    [crops],
+  );
 
   const filtered = useMemo(
     () =>
@@ -392,22 +471,23 @@ export default function Dashboard() {
           q &&
           !c.name.toLowerCase().includes(q) &&
           !c.cropId.toLowerCase().includes(q) &&
-          !c.statusMsg.toLowerCase().includes(q)
+          !td(c.statusMsg).toLowerCase().includes(q)
         )
           return false;
         if (filterStage !== "All" && c.stage !== filterStage) return false;
         if (filterCrop !== "All" && c.rawCrop !== filterCrop) return false;
         if (filterStatus !== "All" && c.status !== filterStatus) return false;
+        if (filterReady && !c.harvestReady) return false;
         return true;
       }),
-    [crops, search, filterStage, filterCrop, filterStatus],
+    [crops, search, filterStage, filterCrop, filterStatus, filterReady, td],
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const activeFilters = [filterStage, filterCrop, filterStatus].filter(
-    (f) => f !== "All",
-  ).length;
+  const activeFilters =
+    [filterStage, filterCrop, filterStatus].filter((f) => f !== "All").length +
+    (filterReady ? 1 : 0);
 
   const summary = useMemo(
     () => ({
@@ -418,6 +498,10 @@ export default function Dashboard() {
     }),
     [crops],
   );
+
+  // Keys to match english defaults in backend to their translations
+  const STAGES_EN = ["All", "Seedling", "Vegetative", "Flowering", "Fruiting"];
+  const STATUS_EN = ["All", "Healthy", "Attention", "Critical"];
 
   return (
     <div
@@ -452,9 +536,12 @@ export default function Dashboard() {
           }}
         >
           <div>
-            <h1 className="page-title">Crops Overview</h1>
+            <h1 className="page-title">{t("dash_title")}</h1>
             <p className="page-subtitle">
-              {filtered.length} of {crops.length} crops shown
+              {t("dash_subtitle", {
+                filtered: filtered.length,
+                total: crops.length,
+              })}
             </p>
           </div>
 
@@ -469,23 +556,23 @@ export default function Dashboard() {
           >
             {[
               {
-                label: "Healthy",
+                labelKey: "dash_healthy",
                 count: summary.healthy,
                 color: "var(--green)",
               },
               {
-                label: "Attention",
+                labelKey: "dash_attention",
                 count: summary.attention,
                 color: "var(--amber)",
               },
               {
-                label: "Critical",
+                labelKey: "dash_critical",
                 count: summary.critical,
                 color: "var(--red)",
               },
-            ].map(({ label, count, color }) => (
+            ].map(({ labelKey, count, color }) => (
               <div
-                key={label}
+                key={labelKey}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -500,7 +587,7 @@ export default function Dashboard() {
                 }}
               >
                 <span style={{ fontWeight: 700 }}>{count}</span>
-                <span style={{ opacity: 0.7 }}>{label}</span>
+                <span style={{ opacity: 0.7 }}>{t(labelKey)}</span>
               </div>
             ))}
           </div>
@@ -519,12 +606,12 @@ export default function Dashboard() {
               fontWeight: 600,
               background: "var(--green)",
               border: "none",
-              color: "#0c1a0e",
+              color: "var(--btn-on-green)",
               cursor: "pointer",
               boxShadow: "0 0 16px rgba(74,222,128,0.2)",
             }}
           >
-            <PlusCircle size={15} /> Add Crop
+            <PlusCircle size={15} /> {t("dash_add_crop")}
           </button>
 
           <button
@@ -546,7 +633,79 @@ export default function Dashboard() {
           </button>
         </header>
 
-        {/* Search + filter bar */}
+        {harvestReadyCrops.length > 0 && (
+          <div
+            className="animate-fade-in"
+            style={{
+              flexShrink: 0,
+              padding: "10px 24px",
+              background: "rgba(245,158,11,0.12)",
+              borderBottom: "1px solid rgba(245,158,11,0.3)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <span
+              className="harvest-pulse"
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: "var(--amber)",
+                flexShrink: 0,
+              }}
+            />
+            <Scissors
+              size={16}
+              style={{ color: "var(--amber)", flexShrink: 0 }}
+            />
+            <div style={{ flex: 1 }}>
+              <span
+                style={{ fontWeight: 700, fontSize: 13, color: "var(--amber)" }}
+              >
+                {t("dash_harvest_banner", {
+                  n: harvestReadyCrops.length,
+                  s: harvestReadyCrops.length !== 1 ? "s" : "",
+                })}
+              </span>
+              <span
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-3)",
+                  marginLeft: 10,
+                  fontFamily: "DM Mono, monospace",
+                }}
+              >
+                {t("dash_harvest_banner_sub")}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setFilterReady(true);
+                setFilterStatus("All");
+                setFilterStage("All");
+                setFilterCrop("All");
+                setSearch("");
+                setPage(1);
+              }}
+              style={{
+                padding: "5px 14px",
+                borderRadius: 8,
+                fontSize: 12,
+                fontFamily: "DM Mono, monospace",
+                background: "rgba(245,158,11,0.2)",
+                border: "1px solid rgba(245,158,11,0.4)",
+                color: "var(--amber)",
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              {t("dash_harvest_action")}
+            </button>
+          </div>
+        )}
+
         <div
           style={{
             flexShrink: 0,
@@ -576,7 +735,7 @@ export default function Dashboard() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              placeholder="Search crops, IDs, stages…"
+              placeholder={t("dash_search_placeholder")}
               style={{
                 width: "100%",
                 paddingLeft: 32,
@@ -631,7 +790,7 @@ export default function Dashboard() {
               color: showFilters ? "var(--green)" : "var(--text-2)",
             }}
           >
-            <SlidersHorizontal size={13} /> Filters
+            <SlidersHorizontal size={13} /> {t("dash_filters")}
             {activeFilters > 0 && (
               <span
                 style={{
@@ -640,7 +799,7 @@ export default function Dashboard() {
                   fontSize: 10,
                   fontFamily: "DM Mono, monospace",
                   background: "var(--green)",
-                  color: "#0c1a0e",
+                  color: "var(--btn-on-green)",
                 }}
               >
                 {activeFilters}
@@ -650,7 +809,7 @@ export default function Dashboard() {
 
           {/* Quick stage pills */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {STAGES.slice(0, 4).map((s) => (
+            {STAGES_EN.slice(0, 4).map((s, i) => (
               <button
                 key={s}
                 onClick={() => {
@@ -671,7 +830,7 @@ export default function Dashboard() {
                   color: filterStage === s ? "var(--green)" : "var(--text-3)",
                 }}
               >
-                {s}
+                {t(STAGES_KEYS[i])}
               </button>
             ))}
           </div>
@@ -693,33 +852,38 @@ export default function Dashboard() {
           >
             {[
               {
-                label: "Crop Type",
+                label: t("add_field_crop_type"),
                 value: filterCrop,
                 set: (v) => {
                   setFilterCrop(v);
                   setPage(1);
                 },
                 opts: CROPS,
+                optLabels: CROPS.map((o) =>
+                  o === "All" ? t("stage_all") : td(o),
+                ),
               },
               {
-                label: "Stage",
+                label: t("add_field_stage"),
                 value: filterStage,
                 set: (v) => {
                   setFilterStage(v);
                   setPage(1);
                 },
-                opts: STAGES,
+                opts: STAGES_EN,
+                optLabels: STAGES_KEYS.map((k) => t(k)),
               },
               {
-                label: "Status",
+                label: t("analytics_th_status"),
                 value: filterStatus,
                 set: (v) => {
                   setFilterStatus(v);
                   setPage(1);
                 },
-                opts: STATUSES,
+                opts: STATUS_EN,
+                optLabels: STATUSES_KEYS.map((k) => t(k)),
               },
-            ].map(({ label, value, set, opts }) => (
+            ].map(({ label, value, set, opts, optLabels }) => (
               <div
                 key={label}
                 style={{ display: "flex", alignItems: "center", gap: 8 }}
@@ -750,9 +914,9 @@ export default function Dashboard() {
                       outline: "none",
                     }}
                   >
-                    {opts.map((o) => (
+                    {opts.map((o, i) => (
                       <option key={o} value={o}>
-                        {o}
+                        {optLabels ? optLabels[i] : o}
                       </option>
                     ))}
                   </select>
@@ -776,6 +940,7 @@ export default function Dashboard() {
                 setFilterStage("All");
                 setFilterCrop("All");
                 setFilterStatus("All");
+                setFilterReady(false);
                 setPage(1);
               }}
               style={{
@@ -788,7 +953,7 @@ export default function Dashboard() {
                 color: "var(--text-3)",
               }}
             >
-              Clear all
+              {t("dash_clear_all")}
             </button>
           </div>
         )}
@@ -830,12 +995,14 @@ export default function Dashboard() {
                   <CropCard
                     key={crop.id}
                     data={crop}
+                    t={t}
+                    td={td}
                     onClick={() => navigate(`/crop/${crop.id}`)}
                   />
                 ))}
                 {/* Always visible at end of first page */}
-                {page === 1 && (
-                  <AddCropCard onClick={() => navigate("/add-crop")} />
+                {page === 1 && !filterReady && (
+                  <AddCropCard onClick={() => navigate("/add-crop")} t={t} />
                 )}
               </div>
 
@@ -883,7 +1050,10 @@ export default function Dashboard() {
                           background:
                             n === page ? "var(--green)" : "var(--surface)",
                           border: `1px solid ${n === page ? "transparent" : "var(--border)"}`,
-                          color: n === page ? "#0c1a0e" : "var(--text-2)",
+                          color:
+                            n === page
+                              ? "var(--btn-on-green)"
+                              : "var(--text-2)",
                           fontWeight: n === page ? 700 : 400,
                         }}
                       >
@@ -948,7 +1118,7 @@ export default function Dashboard() {
                         color: "var(--text-2)",
                       }}
                     >
-                      No crops yet
+                      {t("dash_no_crops")}
                     </div>
                     <div
                       style={{
@@ -957,7 +1127,7 @@ export default function Dashboard() {
                         marginTop: 6,
                       }}
                     >
-                      Start by adding your first crop batch
+                      {t("dash_no_crops_sub")}
                     </div>
                   </div>
                   <button
@@ -972,11 +1142,11 @@ export default function Dashboard() {
                       fontWeight: 600,
                       background: "var(--green)",
                       border: "none",
-                      color: "#0c1a0e",
+                      color: "var(--btn-on-green)",
                       cursor: "pointer",
                     }}
                   >
-                    <PlusCircle size={15} /> Add Your First Crop
+                    <PlusCircle size={15} /> {t("dash_add_first")}
                   </button>
                 </>
               ) : (
@@ -996,7 +1166,7 @@ export default function Dashboard() {
                     <Activity size={24} style={{ color: "var(--text-3)" }} />
                   </div>
                   <div style={{ color: "var(--text-2)", fontSize: 14 }}>
-                    No crops match your filters
+                    {t("dash_no_match")}
                   </div>
                   <button
                     onClick={() => {
@@ -1004,6 +1174,8 @@ export default function Dashboard() {
                       setFilterStage("All");
                       setFilterCrop("All");
                       setFilterStatus("All");
+                      setFilterReady(false);
+                      setPage(1);
                     }}
                     style={{
                       fontSize: 12,
@@ -1016,7 +1188,7 @@ export default function Dashboard() {
                       cursor: "pointer",
                     }}
                   >
-                    Clear filters
+                    {t("dash_clear_filters")}
                   </button>
                 </>
               )}

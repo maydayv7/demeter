@@ -11,14 +11,16 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useFarmData } from "../hooks/useFarmData";
-import { deriveCropStatus } from "../utils/dataUtils";
+import { deriveCropStatus, isReadyToHarvest } from "../utils/dataUtils";
 import { useSettings } from "../hooks/useSettings";
+import { useT } from "../hooks/useTranslation";
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const loc = useLocation();
   const { dashboard } = useFarmData();
   const { settings } = useSettings();
+  const { t } = useT();
 
   const alertCount = useMemo(() => {
     if (!dashboard?.length) return 0;
@@ -28,12 +30,25 @@ export default function Sidebar() {
     }).length;
   }, [dashboard]);
 
+  const harvestCount = useMemo(() => {
+    if (!dashboard?.length) return 0;
+    return dashboard.filter((d) => isReadyToHarvest(d.payload)).length;
+  }, [dashboard]);
+
+  const totalBadge = alertCount + harvestCount;
+
   const NAV = [
-    { label: "Crops", icon: LayoutGrid, path: "/dashboard" },
-    { label: "Alerts", icon: Bell, path: "/alerts", badge: alertCount || null },
-    { label: "Analytics", icon: BarChart3, path: "/analytics" },
-    { label: "Intelligence", icon: Sparkles, path: "/intelligence" },
-    { label: "Settings", icon: Settings, path: "/settings" },
+    { labelKey: "nav_crops", icon: LayoutGrid, path: "/dashboard" },
+    {
+      labelKey: "nav_alerts",
+      icon: Bell,
+      path: "/alerts",
+      badge: totalBadge || null,
+      harvest: harvestCount,
+    },
+    { labelKey: "nav_analytics", icon: BarChart3, path: "/analytics" },
+    { labelKey: "nav_intelligence", icon: Sparkles, path: "/intelligence" },
+    { labelKey: "nav_settings", icon: Settings, path: "/settings" },
   ];
 
   const initials =
@@ -106,7 +121,7 @@ export default function Sidebar() {
                 letterSpacing: "0.1em",
               }}
             >
-              AGRI·AI·v2
+              {t("sidebar_agri_ai")}
             </div>
           </div>
         )}
@@ -166,7 +181,7 @@ export default function Sidebar() {
                 color: "var(--green)",
               }}
             >
-              SYSTEM ONLINE
+              {t("nav_system_online")}
             </span>
           </div>
         </div>
@@ -182,11 +197,12 @@ export default function Sidebar() {
           gap: 2,
         }}
       >
-        {NAV.map(({ label, icon: Icon, path, badge }) => {
+        {NAV.map(({ labelKey, icon: Icon, path, badge, harvest }) => {
           const active = loc.pathname === path;
+          const label = t(labelKey);
           return (
             <Link
-              key={label}
+              key={labelKey}
               to={path}
               title={collapsed ? label : undefined}
               style={{
@@ -211,23 +227,49 @@ export default function Sidebar() {
                 <span style={{ fontSize: 13, fontWeight: 500 }}>{label}</span>
               )}
 
-              {/* Badge */}
+              {/* Badge (expanded) */}
               {badge && !collapsed && (
-                <span
-                  className="alert-pulse"
+                <div
                   style={{
                     marginLeft: "auto",
-                    fontSize: 10,
-                    fontFamily: "DM Mono, monospace",
-                    padding: "1px 5px",
-                    borderRadius: 4,
-                    background: "rgba(248,113,113,0.2)",
-                    color: "var(--red)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
                   }}
                 >
-                  {badge}
-                </span>
+                  {alertCount > 0 && (
+                    <span
+                      className="alert-pulse"
+                      style={{
+                        fontSize: 10,
+                        fontFamily: "DM Mono, monospace",
+                        padding: "1px 5px",
+                        borderRadius: 4,
+                        background: "rgba(248,113,113,0.2)",
+                        color: "var(--red)",
+                      }}
+                    >
+                      {alertCount}
+                    </span>
+                  )}
+                  {harvest > 0 && (
+                    <span
+                      className="harvest-pulse"
+                      style={{
+                        fontSize: 10,
+                        fontFamily: "DM Mono, monospace",
+                        padding: "1px 5px",
+                        borderRadius: 4,
+                        background: "rgba(245,158,11,0.2)",
+                        color: "var(--amber)",
+                      }}
+                    >
+                      🌾 {harvest}
+                    </span>
+                  )}
+                </div>
               )}
+              {/* Badge (collapsed) */}
               {badge && collapsed && (
                 <span
                   className="alert-pulse"
@@ -238,7 +280,7 @@ export default function Sidebar() {
                     width: 7,
                     height: 7,
                     borderRadius: "50%",
-                    background: "var(--red)",
+                    background: alertCount > 0 ? "var(--red)" : "var(--amber)",
                   }}
                 />
               )}
@@ -247,7 +289,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Alert status */}
+      {/* Alert / harvest status */}
       {!collapsed && (
         <div style={{ padding: "0 12px 12px" }}>
           <div
@@ -262,8 +304,41 @@ export default function Sidebar() {
               className="section-label"
               style={{ margin: 0, marginBottom: 6, fontSize: 9 }}
             >
-              ALERT STATUS
+              {t("nav_alert_status")}
             </div>
+
+            {/* Harvest ready row */}
+            {harvestCount > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: alertCount > 0 ? 5 : 0,
+                }}
+              >
+                <span
+                  className="harvest-pulse"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "var(--amber)",
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "DM Mono, monospace",
+                    color: "var(--amber)",
+                  }}
+                >
+                  {t("nav_harvest_ready", { n: harvestCount })}
+                </span>
+              </div>
+            )}
+
             {alertCount > 0 ? (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span
@@ -283,10 +358,13 @@ export default function Sidebar() {
                     color: "var(--red)",
                   }}
                 >
-                  {alertCount} crop{alertCount !== 1 ? "s" : ""} need attention
+                  {t("nav_crops_need_attention", {
+                    n: alertCount,
+                    s: alertCount !== 1 ? "s" : "",
+                  })}
                 </span>
               </div>
-            ) : (
+            ) : harvestCount === 0 ? (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span
                   className="status-dot"
@@ -305,10 +383,10 @@ export default function Sidebar() {
                     color: "var(--green)",
                   }}
                 >
-                  All clear
+                  {t("nav_all_clear")}
                 </span>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}
