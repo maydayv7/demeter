@@ -1,5 +1,5 @@
 import os
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from langgraph.graph import StateGraph, END
 
 # Graph State & Nodes
@@ -11,9 +11,10 @@ from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import ask_hi
 from agent.sub_agents.water_and_atmospheric_dependencies.tools import calculate_vpd, web_search
 
 # Configuration
-API_KEY = os.environ.get("GROQ_API_KEY")
-
-MODEL_ID = "qwen/qwen3-32b"
+API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
+ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
+DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
+API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 ATMOS_PROMPT = """
 You are the Atmospheric Specialist for a Hydroponic Farm.
@@ -38,14 +39,15 @@ class AtmosphericAgent:
     def __init__(self):
         self.name = "Atmospheric Agent"
         
-        if not API_KEY:
-            print(f"[{self.name}] ⚠️ No API Key found.")
+        if not API_KEY or not ENDPOINT:
+            print(f"[{self.name}] ⚠️ No Azure OpenAI credentials found.")
             self.model = None
         else:
-            llm = ChatOpenAI(
-                base_url="https://api.groq.com/openai/v1", 
+            llm = AzureChatOpenAI(
+                azure_endpoint=ENDPOINT,
                 api_key=API_KEY,
-                model="qwen/qwen3-32b",
+                api_version=API_VERSION,
+                deployment_name=DEPLOYMENT_NAME,
                 temperature=0.2,
                 model_kwargs={"tool_choice": "auto", "parallel_tool_calls": False}
             )

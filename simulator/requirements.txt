@@ -7,3 +7,4 @@ Pillow
 python-dotenv
 azure-identity
 azure-digitaltwins-core
+openai

@@ -5,10 +5,13 @@ import re
 import tempfile
 from typing import TypedDict, Dict, Any, Optional
 
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 from qdrant_client import models
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from Sentinel.fmu import FMU
 from agent.sub_agents.base_agent import BaseReasoningAgent
@@ -46,10 +49,11 @@ class JudgeAgent(BaseReasoningAgent):
         self.qdrant = client
         
         # LLM for the "Deliberation" phase
-        self.llm = ChatOpenAI(
-            base_url="https://api.groq.com/openai/v1",
-            api_key=os.environ.get("GROQ_API_KEY"),
-            model="qwen/qwen3-32b",
+        self.llm = AzureChatOpenAI(
+            azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT"),
+            api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
+            api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+            deployment_name=os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1"),
             temperature=0.1
         )
         

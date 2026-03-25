@@ -1,43 +1,45 @@
 import os
-from openai import OpenAI
+from openai import AzureOpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- GROQ CONFIGURATION ---
-# Common Groq Models: "llama3-70b-8192", "mixtral-8x7b-32768"
-MODEL_ID = "qwen/qwen3-32b"
-API_KEY = os.environ.get("GROQ_API_KEY")
+# --- AZURE OPENAI CONFIGURATION ---
+DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
+API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
+ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
+API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 class BaseReasoningAgent:
     def __init__(self, name):
         self.name = name
 
-        if not API_KEY:
-            print(f"[{self.name}] ⚠️ WARNING: GROQ_API_KEY not found in environment.")
+        if not API_KEY or not ENDPOINT:
+            print(f"[{self.name}] ⚠️ WARNING: Azure OpenAI credentials not found in environment.")
             self.client = None
         else:
             try:
-                self.client = OpenAI(
-                    base_url="https://api.groq.com/openai/v1",
-                    api_key=os.getenv("GROQ_API_KEY")
+                self.client = AzureOpenAI(
+                    api_key=API_KEY,
+                    api_version=API_VERSION,
+                    azure_endpoint=ENDPOINT
                 )
             except Exception as e:
-                print(f"[{self.name}] ⚠️ Groq Connection Error: {e}")
+                print(f"[{self.name}] ⚠️ Azure OpenAI Connection Error: {e}")
                 self.client = None
 
     def _call_llm(self, prompt):
         """
-        Helper method to send prompts to Groq Cloud.
+        Helper method to send prompts to Azure OpenAI.
         """
         if not self.client:
             return "Error: LLM Client not connected (Check API Key)."
         
         print("Other Prompt:\n", prompt)
         try:
-            # Groq/OpenAI Chat Completion Structure
+            # Azure OpenAI Chat Completion Structure
             response = self.client.chat.completions.create(
-                model=MODEL_ID,
+                model=DEPLOYMENT_NAME,
                 messages=[
                     {"role": "system", "content": f"You are the {self.name} Agent for a high-tech hydroponic farm."},
                     {"role": "user", "content": prompt}

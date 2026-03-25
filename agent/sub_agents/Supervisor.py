@@ -1,7 +1,7 @@
 import os
 import json
 import numpy as np
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 from agent.tools.actuation import convert_targets_to_actions
@@ -10,6 +10,9 @@ from agent.Marl.bandit import ContextualBandit
 from agent.Marl.strategies import STRATEGIES, NUM_ACTIONS
 from agent.Qdrant.Store import store_fmu
 from agent.sub_agents.water_and_atmospheric_dependencies.physics_engine import predict_outcome
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- NEW TOOLS DEFINITION ---
 def check_cross_domain_conflicts(atmos, water):
@@ -58,18 +61,22 @@ class SupervisorState(TypedDict):
     final_decision: str # "APPROVE" or "REJECT"
     critique: str       # Feedback for sub-agents if Rejected
 
-API_KEY = os.environ.get("GROQ_API_KEY")
+API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
+ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
+DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
+API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 class SupervisorAgent:
     def __init__(self, researcher_agent=None):
         self.name = "Supervisor"
         self.bandit = ContextualBandit(n_actions=NUM_ACTIONS, feature_dim=519)
         
-        if API_KEY:
-            self.model = ChatOpenAI(
-                base_url="https://api.groq.com/openai/v1", 
+        if API_KEY and ENDPOINT:
+            self.model = AzureChatOpenAI(
+                azure_endpoint=ENDPOINT,
                 api_key=API_KEY,
-                model="qwen/qwen3-32b",
+                api_version=API_VERSION,
+                deployment_name=DEPLOYMENT_NAME,
                 temperature=0.0 # Zero temp for strict judging
             )
         

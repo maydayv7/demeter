@@ -1,7 +1,7 @@
 import logging
 from mem0 import Memory
 import os
-import time  # <--- IMPORT ADDED
+import time  
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient, models
 
@@ -15,6 +15,12 @@ class FarmMemory:
         # 1. Setup Collection
         self._setup_collection()
         
+        # --- NEW CODE: Map Azure variables for mem0 natively ---
+        os.environ["LLM_AZURE_OPENAI_API_KEY"] = os.getenv("AZURE_OPENAI_API_KEY", "")
+        os.environ["LLM_AZURE_DEPLOYMENT"] = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
+        os.environ["LLM_AZURE_ENDPOINT"] = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+        os.environ["LLM_AZURE_API_VERSION"] = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+        
         # 2. Initialize Mem0
         config = {
             "vector_store": {
@@ -27,11 +33,8 @@ class FarmMemory:
                 }
             },
             "llm": {
-                "provider": "openai",
+                "provider": "azure_openai",
                 "config": {
-                    "model": "qwen/qwen3-32b",
-                    "api_key": os.getenv("GROQ_API_KEY"),
-                    "openai_base_url": "https://api.groq.com/openai/v1",
                     "max_tokens": 1500
                 }
             },
@@ -80,10 +83,7 @@ class FarmMemory:
             # 1. Use get_all() to fetch raw history (bypassing vector similarity)
             # This ensures we get the *actual* latest events, not just "relevant" ones
             history = self.memory.get_all(user_id=crop_id)
-         #   print(f"   -> Raw history count: {history}")
 
-
-            
             # 2. Extract List from response
             results = []
             if isinstance(history, dict):
@@ -100,15 +100,12 @@ class FarmMemory:
             
             # 4. Slice the top N (Past 3)
             recent_results = results[:limit]
-
-       #     print(f"   -> Extracted entries: {results}")
             
             # 5. Format the output
             formatted_lines = []
             for item in recent_results:
                 # Handle different mem0 versions where content might be in 'memory' or 'text'
                 text = item.get("memory", item.get("text", str(item)))
-          #      print(f"   -> Processing entry: {text}")
                 
                 # Optional: Add a timestamp to the output for verification
                 timestamp = item.get("created_at", "")
@@ -121,7 +118,6 @@ class FarmMemory:
             
             clean_output = "\n".join(formatted_lines)
 
-        #    print(f"   -> Formatted Output:\n{clean_output}")
             return clean_output
 
         except Exception as e:

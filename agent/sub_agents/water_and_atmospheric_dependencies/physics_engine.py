@@ -1,27 +1,33 @@
 import os
 import json
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configuration
-API_KEY = os.environ.get("GROQ_API_KEY")
-MODEL_ID = "qwen/qwen3-32b"  # Using the latest supported Groq model
+API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
+ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
+DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
+API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 
 def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
     """
-    Stateless 'What-If' Engine using Groq (LLM-based Physics).
+    Stateless 'What-If' Engine using Azure OpenAI (LLM-based Physics).
     Takes a snapshot and an action, returns the PREDICTED future state.
     """
-    if not API_KEY:
-        print("   ⚠️ Physics Engine Error: Missing GROQ_API_KEY")
+    if not API_KEY or not ENDPOINT:
+        print("   ⚠️ Physics Engine Error: Missing Azure OpenAI credentials")
         return {"predicted_health": 50.0, "risk_warning": "No API Key configured"}
 
-    # Initialize Groq Client
-    llm = ChatOpenAI(
-        base_url="https://api.groq.com/openai/v1",
+    # Initialize Azure OpenAI Client
+    llm = AzureChatOpenAI(
+        azure_endpoint=ENDPOINT,
         api_key=API_KEY,
-        model=MODEL_ID,
+        api_version=API_VERSION,
+        deployment_name=DEPLOYMENT_NAME,
         temperature=0.1,  # Low temp for consistent physics logic
         max_tokens=1024,
     )
@@ -43,7 +49,7 @@ def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
     )
 
     try:
-        # Invoke Groq
+        # Invoke Azure OpenAI
         response = llm.invoke(
             [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
         )
