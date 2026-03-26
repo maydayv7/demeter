@@ -7,6 +7,7 @@ const en = {
   nav_analytics: "Analytics",
   nav_intelligence: "Intelligence",
   nav_settings: "Settings",
+  nav_help: "Help",
   nav_system_online: "SYSTEM ONLINE",
   nav_alert_status: "ALERT STATUS",
   nav_crops_need_attention: "{n} crop{s} need attention",
@@ -212,7 +213,7 @@ const en = {
   alert_cycle_fail_title: "Cycle failure recorded",
   alert_cycle_fail_desc: '{crop} ({id}): Seq #{seq} outcome: "{outcome}"',
   alert_ph_warn_low_title: "pH below optimal range",
-  alert_ph_warn_desc: "{crop} ({id}): pH at {val}. Target 5.5–6.5.",
+  alert_ph_warn_desc: "{crop} ({id}): pH at {val}. Target 5.5-6.5.",
   alert_ph_warn_high_title: "pH above optimal range",
   alert_ec_warn_title: "EC approaching high limit",
   alert_ec_warn_desc:
@@ -383,6 +384,25 @@ const en = {
   settings_onboarding_sub: "Restart the welcome guide",
   settings_restart_onboarding: "Restart Guide",
 
+  // Help
+  help_title: "Help & Glossary",
+  help_subtitle: "Everything you need to know — explained simply",
+  help_section_terms: "📊 Sensor Terms Explained",
+  help_section_agents: "🤖 How AI Works for You",
+  help_section_stages: "🌱 Growth Stages",
+  help_section_manual: "🖐 When You Need to Act",
+  help_section_ai_cta: "Still have questions?",
+  help_ai_cta_desc: "Ask our Farm Intelligence AI anything about your crops",
+  help_ai_cta_btn: "Ask AI →",
+  help_range_label: "Ideal Range",
+  help_low_label: "Too Low",
+  help_high_label: "Too High",
+  help_ai_label: "AI Auto-Action",
+  help_manual_label: "Manual Needed When",
+  help_agri_label: "Why It Matters",
+  help_tab_simple: "Simple",
+  help_tab_detail: "Detailed",
+
   // Onboarding
   onboarding_step: "Step {n} of {total}",
   onboarding_skip: "Skip",
@@ -403,6 +423,9 @@ const en = {
   onboarding_s5_title: "Harvest Time 🌾",
   onboarding_s5_desc:
     'When a crop is ready to harvest, a special banner will appear on your dashboard. The crop card will show a "HARVEST READY" badge so you never miss the right moment.',
+  onboarding_s6_title: "Always Here to Help",
+  onboarding_s6_desc:
+    "Stuck on a farming term or need quick advice? Check out our Help & Glossary for simple explanations, or ask our Farm Intelligence AI for instant, personalized guidance.",
 
   // Common
   common_loading: "Loading…",
@@ -432,6 +455,7 @@ const hi = {
   nav_analytics: "विश्लेषण",
   nav_intelligence: "बुद्धिमत्ता",
   nav_settings: "सेटिंग्स",
+  nav_help: "सहायता",
   nav_system_online: "सिस्टम चालू है",
   nav_alert_status: "अलर्ट स्थिति",
   nav_crops_need_attention: "{n} फसल{s} पर ध्यान दें",
@@ -630,7 +654,7 @@ const hi = {
   alert_cycle_fail_title: "चक्र विफल",
   alert_cycle_fail_desc: '{crop} ({id}): चक्र #{seq} परिणाम: "{outcome}"',
   alert_ph_warn_low_title: "pH इष्टतम से कम",
-  alert_ph_warn_desc: "{crop} ({id}): pH {val}। लक्ष्य: 5.5–6.5।",
+  alert_ph_warn_desc: "{crop} ({id}): pH {val}। लक्ष्य: 5.5-6.5।",
   alert_ph_warn_high_title: "pH इष्टतम से अधिक",
   alert_ec_warn_title: "EC सीमा के पास",
   alert_ec_warn_desc:
@@ -800,6 +824,26 @@ const hi = {
   settings_onboarding_sub: "स्वागत गाइड दोबारा देखें",
   settings_restart_onboarding: "गाइड दोबारा शुरू करें",
 
+  // Help
+  help_title: "सहायता और शब्दकोश",
+  help_subtitle: "सब कुछ सरल भाषा में समझाया गया",
+  help_section_terms: "📊 सेंसर शब्द समझाए गए",
+  help_section_agents: "🤖 AI आपके लिए कैसे काम करता है",
+  help_section_stages: "🌱 विकास की अवस्थाएं",
+  help_section_manual: "🖐 जब आपको कदम उठाना हो",
+  help_section_ai_cta: "अभी भी सवाल हैं?",
+  help_ai_cta_desc:
+    "हमारे फार्म बुद्धिमत्ता AI से अपनी फसलों के बारे में कुछ भी पूछें",
+  help_ai_cta_btn: "AI से पूछें →",
+  help_range_label: "आदर्श सीमा",
+  help_low_label: "बहुत कम हो तो",
+  help_high_label: "बहुत अधिक हो तो",
+  help_ai_label: "AI स्वचालित कार्रवाई",
+  help_manual_label: "मानवीय कार्रवाई कब जरूरी",
+  help_agri_label: "यह क्यों महत्वपूर्ण है",
+  help_tab_simple: "सरल",
+  help_tab_detail: "विस्तृत",
+
   // Onboarding
   onboarding_step: "चरण {n} / {total}",
   onboarding_skip: "छोड़ें",
@@ -820,6 +864,9 @@ const hi = {
   onboarding_s5_title: "कटाई का समय 🌾",
   onboarding_s5_desc:
     "जब फसल कटाई के लिए तैयार हो, डैशबोर्ड पर एक बैनर और फसल कार्ड पर 'कटाई तैयार' बैज दिखेगा। सही समय पर कटाई कभी न चूकें!",
+  onboarding_s6_title: "हमेशा आपकी मदद के लिए तैयार",
+  onboarding_s6_desc:
+    "खेती के किसी शब्द को लेकर उलझन में हैं या तुरंत सलाह चाहिए? आसान शब्दों में समझने के लिए हमारा शब्दकोश देखें, या तुरंत मार्गदर्शन के लिए हमारे फार्म बुद्धिमत्ता AI से पूछें।",
 
   // Common
   common_loading: "लोड हो रहा है…",

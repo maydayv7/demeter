@@ -913,7 +913,7 @@ export default function FarmIntelligence() {
   const [isRecording, setIsRecording] = useState(false);
   const [toast, setToast] = useState(null);
   const [selectedCrop, setSelectedCrop] = useState(null);
-  const [mode, setMode] = useState("search"); // "search" | "ask"
+  const [mode, setMode] = useState("ask"); // "search" | "ask"
 
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);

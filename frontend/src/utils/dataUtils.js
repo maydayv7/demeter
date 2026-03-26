@@ -191,7 +191,7 @@ export const generateAlerts = (points, t) => {
         alert_cycle_fail_title: "Cycle failure recorded",
         alert_cycle_fail_desc: '{crop} ({id}): Seq #{seq} outcome: "{outcome}"',
         alert_ph_warn_low_title: "pH below optimal range",
-        alert_ph_warn_desc: "{crop} ({id}): pH at {val}. Target 5.5–6.5.",
+        alert_ph_warn_desc: "{crop} ({id}): pH at {val}. Target 5.5-6.5.",
         alert_ph_warn_high_title: "pH above optimal range",
         alert_ec_warn_title: "EC approaching high limit",
         alert_ec_warn_desc:

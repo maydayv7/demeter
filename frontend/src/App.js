@@ -12,9 +12,9 @@ import FarmIntelligence from "./pages/FarmIntelligence";
 import Analytics from "./pages/Analytics";
 import Alerts from "./pages/Alerts";
 import SettingsPage from "./pages/Settings";
+import Help from "./pages/Help";
 import Onboarding from "./components/Onboarding";
 
-// Inner component so it can access SettingsProvider context
 function AppInner() {
   const { settings, update } = useSettings();
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -29,15 +29,15 @@ function AppInner() {
 
   return (
     <>
-      {showOnboarding && (
-        <Onboarding
-          onDone={() => {
-            update("onboardingDone", true);
-            setShowOnboarding(false);
-          }}
-        />
-      )}
       <Router>
+        {showOnboarding && (
+          <Onboarding
+            onDone={() => {
+              update("onboardingDone", true);
+              setShowOnboarding(false);
+            }}
+          />
+        )}
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -47,6 +47,7 @@ function AppInner() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/help" element={<Help />} />
         </Routes>
       </Router>
     </>

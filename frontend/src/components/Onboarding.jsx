@@ -1,23 +1,27 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Leaf,
   LayoutGrid,
   PlusCircle,
   Bell,
+  CheckCircle2,
   ChevronRight,
   X,
-  CheckCircle2,
+  Sparkles,
+  HelpCircle,
 } from "lucide-react";
 import { useSettings } from "../hooks/useSettings";
 import { useT } from "../hooks/useTranslation";
 
-const STEP_ICONS = [Leaf, LayoutGrid, PlusCircle, Bell, CheckCircle2];
+const STEP_ICONS = [Leaf, LayoutGrid, PlusCircle, Bell, CheckCircle2, Sparkles];
 const STEP_COLORS = [
   "var(--green)",
   "var(--blue)",
   "var(--green)",
   "var(--red)",
   "#f59e0b",
+  "var(--blue)",
 ];
 const STEP_KEYS = [
   { title: "onboarding_s1_title", desc: "onboarding_s1_desc" },
@@ -25,12 +29,14 @@ const STEP_KEYS = [
   { title: "onboarding_s3_title", desc: "onboarding_s3_desc" },
   { title: "onboarding_s4_title", desc: "onboarding_s4_desc" },
   { title: "onboarding_s5_title", desc: "onboarding_s5_desc" },
+  { title: "onboarding_s6_title", desc: "onboarding_s6_desc" },
 ];
 
 export default function Onboarding({ onDone }) {
   const [step, setStep] = useState(0);
   const { update } = useSettings();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const navigate = useNavigate();
 
   const total = STEP_KEYS.length;
   const isLast = step === total - 1;
@@ -42,6 +48,30 @@ export default function Onboarding({ onDone }) {
     update("onboardingDone", true);
     onDone?.();
   };
+
+  const goToAI = () => {
+    finish();
+    navigate("/intelligence");
+  };
+
+  const goToHelp = () => {
+    finish();
+    navigate("/help");
+  };
+
+  // AI Labels
+  const askAILabel = lang === "hi" ? "AI से पूछें →" : "Ask AI →";
+  const askAISubLabel =
+    lang === "hi"
+      ? "सवाल हैं? फार्म बुद्धिमत्ता AI से पूछें"
+      : "Have questions? Ask Farm Intelligence";
+
+  // Help Labels
+  const helpLabel = lang === "hi" ? "मदद और शब्दकोश →" : "Help & Glossary →";
+  const helpSubLabel =
+    lang === "hi"
+      ? "खेती के शब्द और AI के काम करने का तरीका समझें"
+      : "Understand farming terms and how AI works";
 
   return (
     /* Backdrop */
@@ -170,10 +200,125 @@ export default function Onboarding({ onDone }) {
               color: "var(--text-2)",
               lineHeight: 1.75,
               whiteSpace: "pre-line",
+              width: "100%",
             }}
           >
             {t(descKey)}
           </div>
+
+          {/* Help & AI Nudges */}
+          {isLast && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                width: "100%",
+              }}
+            >
+              {/* Help Page Link */}
+              <div
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  background: "rgba(59,130,246,0.08)",
+                  border: "1px solid rgba(59,130,246,0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  cursor: "pointer",
+                  boxSizing: "border-box",
+                }}
+                onClick={goToHelp}
+              >
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: "rgba(59,130,246,0.15)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <HelpCircle size={15} style={{ color: "var(--blue)" }} />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "var(--blue)",
+                      marginBottom: 2,
+                    }}
+                  >
+                    {helpLabel}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)" }}>
+                    {helpSubLabel}
+                  </div>
+                </div>
+                <ChevronRight
+                  size={14}
+                  style={{ color: "var(--blue)", marginLeft: "auto" }}
+                />
+              </div>
+
+              {/* Ask AI Nudge */}
+              <div
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  background: "rgba(74,222,128,0.08)",
+                  border: "1px solid rgba(74,222,128,0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  cursor: "pointer",
+                  boxSizing: "border-box",
+                }}
+                onClick={goToAI}
+              >
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: "rgba(74,222,128,0.15)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Sparkles size={15} style={{ color: "var(--green)" }} />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "var(--green)",
+                      marginBottom: 2,
+                    }}
+                  >
+                    {askAILabel}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)" }}>
+                    {askAISubLabel}
+                  </div>
+                </div>
+                <ChevronRight
+                  size={14}
+                  style={{ color: "var(--green)", marginLeft: "auto" }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Step dots */}
           <div
@@ -209,33 +354,36 @@ export default function Onboarding({ onDone }) {
               marginTop: 4,
             }}
           >
-            <button
-              onClick={finish}
-              style={{
-                flex: 1,
-                padding: "10px 0",
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 500,
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                color: "var(--text-3)",
-                cursor: "pointer",
-              }}
-            >
-              {t("onboarding_skip")}
-            </button>
+            {!isLast && (
+              <button
+                onClick={finish}
+                style={{
+                  flex: 1,
+                  padding: "10px 0",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-3)",
+                  cursor: "pointer",
+                }}
+              >
+                {t("onboarding_skip")}
+              </button>
+            )}
+
             <button
               onClick={() => (isLast ? finish() : setStep((s) => s + 1))}
               style={{
-                flex: 2,
+                flex: isLast ? 1 : 2,
                 padding: "10px 0",
                 borderRadius: 10,
                 fontSize: 14,
                 fontWeight: 700,
                 background: color,
                 border: "none",
-                color: isLast ? "#0c1a0e" : "#0c1a0e",
+                color: "#0c1a0e",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",

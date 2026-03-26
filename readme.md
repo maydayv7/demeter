@@ -188,6 +188,7 @@ The frontend is a highly responsive React 19 SPA featuring bilingual support (En
 | Farm Intelligence | `/intelligence` | Natural-language RAG search against the agronomic knowledge base                                   |
 | Analytics         | `/analytics`    | Multi-chart analytics: pH/EC/temp traces, daily sequences, parameter health scores, per-crop table |
 | Alerts            | `/alerts`       | Categorized alert system (CRITICAL/WARNING/INFO/HARVEST) with acknowledge workflow                 |
+| Help              | `/help`         | Farming terms, Simple explanations and definitions                                                 |
 | Settings          | `/settings`     | Theme, language, farm name, notification prefs, onboarding                                         |
 
 ---

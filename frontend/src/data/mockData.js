@@ -19,7 +19,7 @@ const EXPLANATION_LOGS = {
 2. **Precedent**: 3 similar past states found. In 2 of those cases, a slight EC boost
    improved growth rate by +12%. No disease was detected in the last 5 cycles.
 
-3. **Logic**: EC at 1.4 is slightly below the 1.5–1.8 target for late vegetative.
+3. **Logic**: EC at 1.4 is slightly below the 1.5-1.8 target for late vegetative.
    A small nutrient dosage increase will push it into the optimal window.
    Fan speed is adequate; no VPD concerns at current temp/humidity.
 
@@ -32,14 +32,14 @@ const EXPLANATION_LOGS = {
 2. **Precedent**: 2 similar flowering Tomato states found. In one prior case,
    EC > 2.2 triggered blossom drop. Acid dosage was effective in 1 case.
 
-3. **Logic**: pH 5.8 is at the lower end for Tomato flowering (optimal 6.0–6.5).
+3. **Logic**: pH 5.8 is at the lower end for Tomato flowering (optimal 6.0-6.5).
    A controlled acid dose of 1.5ml will bring pH down slightly to 5.9,
    while nutrient top-up at 4ml maintains bloom support without pushing EC over limit.
 
 4. **Conclusion**: Targeted acid dosage + nutrient boost is the correct intervention.
    Increased fan speed to 60% to manage VPD in warm conditions.`,
 
-  basil: `1. **Observation**: CRITICAL — pH 7.8 (target 5.5–6.5), EC 0.6 (very low), Temp 29.5°C.
+  basil: `1. **Observation**: CRITICAL — pH 7.8 (target 5.5-6.5), EC 0.6 (very low), Temp 29.5°C.
    Multiple out-of-range parameters detected simultaneously.
 
 2. **Precedent**: 1 similar critical Basil state found. Previous corrective action
@@ -57,9 +57,9 @@ const EXPLANATION_LOGS = {
    All parameters within optimal range for Spinach Vegetative stage.
 
 2. **Precedent**: 4 similar states found, all showing positive outcomes.
-   Gentle interventions in this range historically improve harvest weight by 8–15%.
+   Gentle interventions in this range historically improve harvest weight by 8-15%.
 
-3. **Logic**: Conditions are near-ideal. pH 6.3 is perfect for Spinach (optimal 6.0–7.0).
+3. **Logic**: Conditions are near-ideal. pH 6.3 is perfect for Spinach (optimal 6.0-7.0).
    Light nutrient boost (1ml) maintains EC momentum. Water refill supports
    root zone hydration without diluting nutrients significantly.
 
@@ -73,7 +73,7 @@ const EXPLANATION_LOGS = {
    tip burn on fruit edges. Water flush was effective in reducing EC.
 
 3. **Logic**: EC 2.8 exceeds the 2.5 ceiling for fruiting Cucumbers.
-   Base dosage (2ml) will gently raise pH from 5.5 toward optimal 5.8–6.2.
+   Base dosage (2ml) will gently raise pH from 5.5 toward optimal 5.8-6.2.
    5L water refill will dilute EC concentration to ~2.4, within safe range.
 
 4. **Conclusion**: Base pH correction + aggressive water refill to manage EC.

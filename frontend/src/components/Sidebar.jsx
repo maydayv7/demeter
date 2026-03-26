@@ -7,6 +7,7 @@ import {
   Bell,
   Settings,
   Sparkles,
+  HelpCircle,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -48,6 +49,7 @@ export default function Sidebar() {
     },
     { labelKey: "nav_analytics", icon: BarChart3, path: "/analytics" },
     { labelKey: "nav_intelligence", icon: Sparkles, path: "/intelligence" },
+    { labelKey: "nav_help", icon: HelpCircle, path: "/help" },
     { labelKey: "nav_settings", icon: Settings, path: "/settings" },
   ];
 
