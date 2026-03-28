@@ -61,12 +61,13 @@ const createCrop = async (req, res) => {
         humidity: [60.0],
       },
 
-      // Auto-generate fake sensor IDs
+      // Fallback to auto-generated fake sensor IDs
       sensor_ids: {
-        ph_sensor: fakeSensorId("PH"),
-        ec_sensor: fakeSensorId("EC"),
-        temp_sensor: fakeSensorId("TMP"),
-        humidity_sensor: fakeSensorId("HUM"),
+        ph_sensor: req.body.sensor_ids?.ph_sensor || fakeSensorId("PH"),
+        ec_sensor: req.body.sensor_ids?.ec_sensor || fakeSensorId("EC"),
+        temp_sensor: req.body.sensor_ids?.temp_sensor || fakeSensorId("TMP"),
+        humidity_sensor:
+          req.body.sensor_ids?.humidity_sensor || fakeSensorId("HUM"),
       },
 
       // Auto-set cycle_duration_hours based on crop type

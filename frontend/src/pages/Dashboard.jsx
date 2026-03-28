@@ -399,11 +399,11 @@ export default function Dashboard() {
     if (!name) return null;
     const n = name.toLowerCase();
     if (n.includes("tomato"))
-      return "https://images.unsplash.com/photo-1591857177580-dc82b9e4e5c9?q=80&w=400";
+      return "https://images.unsplash.com/photo-1571680322279-a226e6a4cc2a?q=80&w=400";
     if (n.includes("basil"))
-      return "https://images.unsplash.com/photo-1618164436241-4473940d1f5c?q=80&w=400";
+      return "https://images.unsplash.com/photo-1618375569909-3c8616cf7733?q=80&w=400";
     if (n.includes("strawberry"))
-      return "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?q=80&w=400";
+      return "https://images.unsplash.com/photo-1677694682771-f2a1eaa7b8d9?q=80&w=400";
     // Default: lettuce
     return "https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?q=80&w=400";
   };

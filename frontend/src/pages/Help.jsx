@@ -1085,7 +1085,6 @@ function ManualCard({ scenario, dict }) {
 function StepCard({ step, dict, index }) {
   return (
     <div
-      className="card-hover"
       style={{
         padding: "14px 16px",
         borderRadius: 12,
@@ -1099,8 +1098,8 @@ function StepCard({ step, dict, index }) {
     >
       <div
         style={{
-          width: 28,
-          height: 28,
+          width: 20,
+          height: 20,
           borderRadius: 8,
           background: `${step.color}18`,
           border: `1px solid ${step.color}40`,
@@ -1118,10 +1117,10 @@ function StepCard({ step, dict, index }) {
       </div>
       <span
         style={{
-          fontSize: 13,
+          fontSize: 11,
           color: "var(--text-2)",
           lineHeight: 1.6,
-          paddingTop: 4,
+          paddingTop: 1,
         }}
       >
         {dict[step.key]}
@@ -1133,7 +1132,6 @@ function StepCard({ step, dict, index }) {
 function CropTypeCard({ crop, dict }) {
   return (
     <div
-      className="card-hover"
       style={{
         padding: "16px",
         borderRadius: 14,

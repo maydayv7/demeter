@@ -960,6 +960,7 @@ export default function CropDetails() {
   const [latest, setLatest] = useState(null);
   const [cropDoc, setCropDoc] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [lastExplainedLog, setLastExplainedLog] = useState(null);
   const [activeTab, setActiveTab] = useState("details_tab_info");
 
   useEffect(() => {
@@ -987,6 +988,15 @@ export default function CropDetails() {
         }));
         setHistory(processed);
         setLatest(processed[processed.length - 1]);
+        const lastExplained = [...processed]
+          .reverse()
+          .find(
+            (h) =>
+              h.payload?.explanation_log &&
+              h.payload.explanation_log !== "PENDING_ANALYSIS" &&
+              h.payload.explanation_log.trim().length > 0,
+          );
+        setLastExplainedLog(lastExplained?.payload?.explanation_log || null);
       }
 
       if (mongoDoc) setCropDoc(mongoDoc);
@@ -1206,7 +1216,7 @@ export default function CropDetails() {
                 strategicIntent={p.strategic_intent}
               />
             )}
-            <ExplanationLogBlock log={p.explanation_log} t={t} td={td} />
+            <ExplanationLogBlock log={lastExplainedLog} t={t} td={td} />
             <div
               style={{
                 borderRadius: 14,

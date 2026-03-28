@@ -285,7 +285,6 @@ export default function SettingsPage() {
         <div style={{ flex: 1, overflowY: "auto", padding: 28 }}>
           <div
             style={{
-              maxWidth: 720,
               display: "flex",
               flexDirection: "column",
               gap: 24,

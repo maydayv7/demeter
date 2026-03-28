@@ -185,6 +185,7 @@ The frontend is a highly responsive React 19 SPA featuring bilingual support (En
 | Dashboard         | `/dashboard`    | Crop card grid with health/maturity/stage filters and harvest banner                               |
 | Crop Details      | `/crop/:id`     | Per-crop sensor charts, agent reasoning log, event timeline, actuator commands                     |
 | Add Crop          | `/add-crop`     | Form to initialize a crop + live agent pipeline log with 6-phase progress tracker                  |
+| Add Crop          | `/add-crop`     | Form to initialize a crop + live agent pipeline log with 6-phase progress tracker                  |
 | Farm Intelligence | `/intelligence` | Natural-language RAG search against the agronomic knowledge base                                   |
 | Analytics         | `/analytics`    | Multi-chart analytics: pH/EC/temp traces, daily sequences, parameter health scores, per-crop table |
 | Alerts            | `/alerts`       | Categorized alert system (CRITICAL/WARNING/INFO/HARVEST) with acknowledge workflow                 |
@@ -398,4 +399,6 @@ python agent/main_agent.py
 
 ---
 
-<center>Made with ❤️ for the future of sustainable agriculture</center>
+<div align="center">
+Made with ❤️ for the future of sustainable agriculture
+</div>

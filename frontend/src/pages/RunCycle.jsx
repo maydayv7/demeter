@@ -325,7 +325,7 @@ export default function RunCycle() {
       );
 
       pushLog(
-        `[FETCHER] Starting cycle for ${cropIdVal} (${cropName} - ${stage})`,
+        `Starting cycle for ${cropIdVal} (${cropName} - ${stage})`,
         "FETCHER",
       );
 
@@ -358,10 +358,16 @@ export default function RunCycle() {
             }
             try {
               const parsed = JSON.parse(raw);
-              if (parsed.log) pushLog(parsed.log);
-              if (parsed.action) {
-                setFinalAction(parsed.action);
+              const msg = parsed.log || parsed.text;
+              if (msg) pushLog(msg, parsed.agent?.toUpperCase?.());
+              if (parsed.action || parsed.final_action) {
+                setFinalAction(parsed.action || parsed.final_action);
                 pushLog("✅ Final action dispatched to hardware", "SUPERVISOR");
+              }
+              if (parsed.phase === "done") {
+                setPhase("done");
+                setCycles((c) => c + 1);
+                showToast(t("add_cycle_done"));
               }
             } catch {
               pushLog(raw);
@@ -454,27 +460,33 @@ export default function RunCycle() {
             {t("run_for_crop", { crop: cropName })}
           </p>
         </div>
-        {phase === "done" && (
-          <div
+      </PageHeader>
+
+      {phase === "done" && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            padding: "8px 16px",
+            borderBottom: "1px solid rgba(74,222,128,0.15)",
+            background: "rgba(74,222,128,0.06)",
+          }}
+        >
+          <CheckCircle2 size={13} style={{ color: "var(--green)" }} />
+          <span
             style={{
-              marginLeft: "auto",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "4px 12px",
-              borderRadius: 20,
-              background: "rgba(74,222,128,0.1)",
-              border: "1px solid rgba(74,222,128,0.3)",
-              fontSize: 11,
+              fontSize: 12,
               fontFamily: "DM Mono, monospace",
               color: "var(--green)",
+              fontWeight: 600,
             }}
           >
-            <CheckCircle2 size={12} />
             {cycles} cycle{cycles !== 1 ? "s" : ""} completed
-          </div>
-        )}
-      </PageHeader>
+          </span>
+        </div>
+      )}
 
       <div
         style={{
@@ -1011,6 +1023,7 @@ export default function RunCycle() {
                       color: "var(--red)",
                       border: "1px solid rgba(248,113,113,0.3)",
                       animation: "pulse 1.5s ease-in-out infinite",
+                      alignSelf: "center",
                     }}
                   >
                     STREAMING

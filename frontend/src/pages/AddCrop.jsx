@@ -128,6 +128,14 @@ export default function AddCrop() {
     location: "",
     notes: "",
   });
+
+  const [sensorIds, setSensorIds] = useState({
+    ph_sensor: "",
+    ec_sensor: "",
+    temp_sensor: "",
+    humidity_sensor: "",
+  });
+
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
@@ -188,6 +196,7 @@ export default function AddCrop() {
         crop: form.crop,
         location: form.location,
         notes: form.notes,
+        sensor_ids: sensorIds,
         // image_url: upload to storage
       };
 
@@ -449,6 +458,75 @@ export default function AddCrop() {
               {error}
             </p>
           )}
+        </SectionCard>
+
+        {/* Sensor Assignment */}
+        <SectionCard>
+          <div className="section-label" style={{ marginBottom: 12 }}>
+            Sensor Assignment
+          </div>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+          >
+            {[
+              { key: "ph_sensor", label: "pH Sensor", color: "var(--green)" },
+              { key: "ec_sensor", label: "EC Sensor", color: "var(--amber)" },
+              { key: "temp_sensor", label: "Temp Sensor", color: "var(--red)" },
+              {
+                key: "humidity_sensor",
+                label: "Humidity Sensor",
+                color: "#a78bfa",
+              },
+            ].map(({ key, label, color }) => (
+              <div
+                key={key}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "var(--bg-3)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontFamily: "DM Mono, monospace",
+                    color: "var(--text-3)",
+                    marginBottom: 6,
+                  }}
+                >
+                  {label}
+                </div>
+                <input
+                  type="text"
+                  value={sensorIds[key]}
+                  onChange={(e) =>
+                    setSensorIds((s) => ({ ...s, [key]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    background: "none",
+                    border: "none",
+                    outline: "none",
+                    color,
+                    fontFamily: "DM Mono, monospace",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--text-3)",
+              marginTop: 8,
+              fontFamily: "DM Mono, monospace",
+            }}
+          >
+            Leave blank to auto-assign, or enter your physical sensor labels.
+          </p>
         </SectionCard>
 
         {/* Auto: cycle duration + stage */}

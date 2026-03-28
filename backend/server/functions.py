@@ -279,7 +279,7 @@ async def process_cycle_stream(file: UploadFile, sensors_str: str, builder):
         image_b64 = base64.b64encode(file_content).decode("utf-8")
         abs_image_path = os.path.abspath(temp_filename)
 
-        yield f"data: {json.dumps({'agent': 'FETCHER', 'text': '[Fetcher] 📡 Requesting data from simulator...'})}\n\n"
+        yield f"data: {json.dumps({'agent': 'FETCHER', 'text': '📡 Requesting data from simulator...'})}\n\n"
         await asyncio.sleep(0.5)
 
         # --- 2. DATA ---
@@ -293,7 +293,7 @@ async def process_cycle_stream(file: UploadFile, sensors_str: str, builder):
 
         seq_num = get_next_sequence_number(target_crop_id)
 
-        yield f"data: {json.dumps({'agent': 'FETCHER', 'text': f'[Fetcher] 🔢 Sequence for {target_crop_id}: {seq_num}'})}\n\n"
+        yield f"data: {json.dumps({'agent': 'FETCHER', 'text': f'🔢 Sequence for {target_crop_id}: {seq_num}'})}\n\n"
         await asyncio.sleep(0.3)
 
         metadata = {
@@ -309,7 +309,7 @@ async def process_cycle_stream(file: UploadFile, sensors_str: str, builder):
         query_fmu = builder.create_fmu(abs_image_path, clean_sensors, metadata=metadata)
         store_fmu(query_fmu)
 
-        yield f"data: {json.dumps({'agent': 'FETCHER', 'text': f'[Fetcher] 🧠 FMU Created (ID: {query_fmu.id}) — Handing off to specialists.'})}\n\n"
+        yield f"data: {json.dumps({'agent': 'FETCHER', 'text': f'🧠 FMU Created (ID: {query_fmu.id}) — Handing off to specialists.'})}\n\n"
         await asyncio.sleep(0.5)
 
         # --- 3. RESEARCH ---
