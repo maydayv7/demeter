@@ -248,10 +248,16 @@ demeter/
 ├── agent/
 │   ├── main_agent.py            # Orchestration loop (runs the 7-agent cycle)
 │   ├── memory.py                # FarmMemory class (Mem0 + Qdrant)
+│   ├── guardrails/
+│   │   ├── README.md            # Guardrails documentation
+│   │   └── validation.py        # Input sanitization, bounds checking, injection detection
+│   ├── model/
+│   │   └── plant_disease_model.pt  # Plant disease detection model
 │   ├── Marl/
 │   │   ├── bandit.py            # Contextual Bandit (LinGreedy, 15 arms)
 │   │   ├── strategies.py        # Strategy definitions
-│   │   └── train-bandit.py      # Offline training script
+│   │   ├── train-bandit.py      # Offline training script
+│   │   └── model_bandit_greedy.pkl  # Trained bandit model weights
 │   ├── Sentinel/
 │   │   ├── agent.py             # FMUBuilder - creates fused vectors
 │   │   ├── fmu.py               # FMU dataclass
@@ -320,6 +326,7 @@ demeter/
 ├── simulator/
 │   └── main.py                  # Multi-batch DigitalTwin fleet + Azure ADT sync
 │
+├── yolov8n.pt                   # Pre-trained YOLOv8 model
 ├── Knowledge_Base/              # Drop agronomic PDFs here for RAG ingestion
 ├── requirements.txt
 └── README.md

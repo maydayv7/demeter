@@ -114,8 +114,8 @@ def main():
         except Exception as e:
             print(f"\n❌ Connection Error: {e}")
 
-        print("\nzzz Sleeping 2 minutes...")
-        time.sleep(120)
+        # print("\nzzz Sleeping 2 minutes...")
+        # time.sleep(120)
 
 
 if __name__ == "__main__":

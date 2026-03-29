@@ -14,6 +14,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from Qdrant.Store import store_fmu, COLLECTION_NAME
 from Qdrant.Client import client
 
+# 🛡️ GUARDRAILS
+from agent.guardrails.validation import sanitize_input
+
 # Import Agent instances
 from agent.sub_agents.fetching_agent import FetchingAgent
 from agent.sub_agents.atmospheric_agent import AtmosphericAgent
@@ -405,6 +408,25 @@ async def process_text_query(text: str, crop_id: str = None):
     When crop_id is provided the caller has selected a specific crop, so we
     inject a should-match for that crop_id to bias results toward it.
     """
+    
+    # 🛡️ GUARDRAIL: Check for injection attempts and off-topic queries
+    sanitized_text, violations = sanitize_input(text)
+    
+    if violations:
+        print(f"⚠️ Query Security Alert:")
+        for v in violations:
+            print(f"   {v}")
+        
+        if len(violations) >= 3:
+            return {
+                "status": "error",
+                "message": "❌ Query blocked: Multiple security violations detected. Please ask only farm-related questions.",
+                "violations": violations
+            }
+    
+    # Use sanitized input
+    text = sanitized_text
+    
     system_prompt = """
     You are a Database Translator for an AI Hydroponic Farm.
     Your goal: Convert natural language queries into a precise JSON filter object.
@@ -625,6 +647,24 @@ async def process_ask_query(query: str, context: str, language: str):
     from the frontend.
     """
     try:
+        # 🛡️ GUARDRAIL: Check for injection attempts and off-topic queries
+        sanitized_query, violations = sanitize_input(query)
+        
+        if violations:
+            print(f"⚠️ Query Security Alert:")
+            for v in violations:
+                print(f"   {v}")
+            
+            if len(violations) >= 3:
+                return {
+                    "status": "error",
+                    "message": " Question blocked: Multiple security violations detected. Please ask only farm-related questions.",
+                    "violations": violations
+                }
+        
+        # Use sanitized input
+        query = sanitized_query
+        
         lang_instr = (
             "Respond entirely in Hindi."
             if language == "hi"
@@ -638,6 +678,7 @@ ROLE:
 - Compare crops when asked, citing their crop_id
 - Give actionable recommendations grounded in the data
 - Be concise: lead with the direct answer, then explain
+- SCOPE: Answer ONLY farm-related questions. Politely decline off-topic queries.
 
 REASONING:
 Wrap your internal reasoning in <thinking>...</thinking> before your answer.

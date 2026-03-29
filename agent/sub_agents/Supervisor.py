@@ -10,6 +10,10 @@ from agent.Marl.bandit import ContextualBandit
 from agent.Marl.strategies import STRATEGIES, NUM_ACTIONS
 from agent.Qdrant.Store import store_fmu
 from agent.sub_agents.water_and_atmospheric_dependencies.physics_engine import predict_outcome
+
+# 🛡️ GUARDRAILS
+from agent.guardrails.validation import validate_plan, detect_hard_violations, create_validation_report
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -34,14 +38,30 @@ def check_cross_domain_conflicts(atmos, water):
     return conflicts
 
 def validate_hard_limits(plan):
-    violations = []
-    # Hard limits for Lettuce/General Hydroponics
-    if plan.get('ph', 6.0) < 5.0: violations.append("pH < 5.0 is toxic.")
-    if plan.get('ph', 6.0) > 7.5: violations.append("pH > 7.5 causes lockout.")
-    if plan.get('ec', 1.0) > 3.0: violations.append("EC > 3.0 is too high for lettuce.")
-    if plan.get('humidity', 60) > 85: violations.append("Humidity > 85% guarantees mold.")
+    """
+    Validates plan against hard limits using guardrails.
+    Returns list of violations.
+    """
+    has_violations, violations = detect_hard_violations(plan)
     
-    return violations
+    if has_violations:
+        print(f"🚫 HARD LIMIT VIOLATIONS DETECTED:")
+        for v in violations:
+            print(f"   {v}")
+    
+    # Also check for obvious physics conflicts
+    additional_conflicts = []
+    
+    if plan.get('air_temp', 25) - plan.get('water_temp', 20) > 10:
+        additional_conflicts.append("⚠️ Thermal Shock Risk: Air/Water temp delta > 10°C")
+    
+    if plan.get('humidity', 60) < 40 and plan.get('ec', 1.0) > 2.5:
+        additional_conflicts.append("⚠️ Burn Risk: Low humidity + high EC")
+    
+    if plan.get('humidity', 60) > 85:
+        additional_conflicts.append("🚫 Mold Risk: Humidity > 85%")
+    
+    return violations + additional_conflicts
 
 # --- STATE DEFINITION ---
 from typing import TypedDict, Optional, Dict, Any, List
@@ -201,6 +221,18 @@ class SupervisorAgent:
         final_targets = result.get("merged_plan", {})
 
         current_sensors = fmu.metadata.get('sensors', {})
+        
+        # 🛡️ GUARDRAIL CHECK: Validate before executing
+        print(f"[{self.name}] 🛡️ Running guardrail validation...")
+        validation = validate_plan(final_targets)
+        
+        if validation["severity"] == "CRITICAL":
+            print(create_validation_report(final_targets))
+            print(f"[{self.name}] ⚠️ CRITICAL VIOLATIONS - Clamping to bounds...")
+            final_targets = validation["bounded_plan"]
+        
+        if validation["warnings"]:
+            print(f"[{self.name}] ⚠️ Warnings: {', '.join(validation['warnings'])}")
         
         print(f"[{self.name}] ⚙️ Converting Targets to Actuator Commands...")
 
