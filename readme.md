@@ -7,6 +7,8 @@ It combines reinforcement learning, computer vision, LLM-based reasoning, vector
 
 Built for the **Microsoft AI Unlocked - AI for India** hackathon, Demeter addresses food security and precision agriculture challenges in the Indian context, with full Hindi language support and a design philosophy accessible to rural operators.
 
+#### Click [here](https://drive.google.com/drive/folders/1g1hAuag-n2yUF-Bju1LGYRcejQoMrS7f) to view the **Project Deliverables**.
+
 ---
 
 ## Screenshots
