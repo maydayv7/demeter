@@ -19,6 +19,7 @@ from agent.guardrails.validation import sanitize_input
 
 # Import Agent instances
 from agent.sub_agents.fetching_agent import FetchingAgent
+from agent.sub_agents.judge_agent import JudgeAgent
 from agent.sub_agents.atmospheric_agent import AtmosphericAgent
 from agent.sub_agents.water_agent import WaterAgent
 from agent.sub_agents.Supervisor import SupervisorAgent
@@ -27,6 +28,7 @@ from agent.sub_agents.Explainer import ExplainerAgent
 
 # Global singletons to avoid re-initializing heavy models per request
 fetcher = FetchingAgent()
+judge = JudgeAgent()
 atmos_agent = AtmosphericAgent()
 water_agent = WaterAgent()
 researcher = ResearcherAgent()
@@ -324,10 +326,21 @@ async def process_cycle_stream(file: UploadFile, sensors_str: str, builder):
         await asyncio.sleep(0.5)
         yield f"data: {json.dumps({'agent': 'RESEARCHER', 'text': ' 📚 Found relevant scientific data.'})}\n\n"
 
+        # --- 3.5 JUDGE: Review previous cycle and update bandit ---
+        yield f"data: {json.dumps({'agent': 'JUDGE', 'text': '⚖️ Judge reviewing previous cycle outcome...'})}\n\n"
+        await asyncio.sleep(0.3)
+        judge_result = judge.review_previous_cycle(query_fmu, image_b64)
+        
+        # --- 3.6 BANDIT LEARNING: Update model based on previous cycle outcome ---
+        if judge_result:
+            yield f"data: {json.dumps({'agent': 'SUPERVISOR', 'text': '🧠 Supervisor learning from outcome...'})}\n\n"
+            await asyncio.sleep(0.3)
+            supervisor.learn_from_outcome(query_fmu, judge_result)
+        
+        await asyncio.sleep(0.3)
+
         # --- 4. AGENTS ---
-        strat_instr = "Maintain optimal crop-specific parameters."
-        strat_name = "STANDARD_MAINTENANCE"
-        action_idx = 0
+        strat_name, strat_instr, action_idx = supervisor.get_strategic_goal(query_fmu)
 
         yield f"data: {json.dumps({'agent': 'BANDIT', 'text': f'🎰 BANDIT STRATEGY: {strat_name}'})}\n\n"
         await asyncio.sleep(0.3)
