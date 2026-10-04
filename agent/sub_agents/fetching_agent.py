@@ -95,11 +95,9 @@ class FetchingAgent:
 
                 return processed_crops
             else:
-                print(f"[Fetcher] ❌ Error: Simulator returned {response.status_code}")
                 return []
 
-        except Exception as e:
-            print(f"[Fetcher] ❌ Critical Error: {e}")
+        except Exception:
             return []
 
     def _get_next_sequence(self, crop_id):

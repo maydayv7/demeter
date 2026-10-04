@@ -31,7 +31,6 @@ const addMemory = async (req, res) => {
 
         res.json({ success: true, id: pointId, message: "Memory stored successfully" });
     } catch (e) {
-        console.error(e);
         res.status(500).json({ error: e.message });
     }
 };

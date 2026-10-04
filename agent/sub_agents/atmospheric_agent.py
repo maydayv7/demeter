@@ -1,5 +1,5 @@
 import os
-from langchain_openai import AzureChatOpenAI
+from langchain_ollama import ChatOllama
 from langgraph.graph import StateGraph, END
 
 # Graph State & Nodes
@@ -11,10 +11,8 @@ from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import ask_hi
 from agent.sub_agents.water_and_atmospheric_dependencies.tools import calculate_vpd, web_search
 
 # Configuration
-API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
-ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
-DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
-API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:e2b")
 
 ATMOS_PROMPT = """
 You are the Atmospheric Specialist for a Hydroponic Farm.
@@ -32,41 +30,45 @@ Research: {research}
 History: {history}
 Critique from Simulation: {critique}
 
-TASK: Output ONLY a valid JSON object with keys: 'air_temp', 'humidity', 'co2', 'light_intensity'. Do not include markdown formatting, code blocks, or any explanatory text outside the JSON. Return strictly the raw JSON.
+TASK: Output ONLY a valid JSON object with keys: 'air_temp', 'humidity', 'co2', 'light_intensity'.
+Each value is the ABSOLUTE TARGET you want that reading to reach this cycle
+(e.g. 'air_temp': 24.0 means "set air temp to 24.0C") — NOT a delta.
+Do not include markdown formatting, code blocks, or any explanatory text outside the JSON. Return strictly the raw JSON.
 """
 
 class AtmosphericAgent:
     def __init__(self):
         self.name = "Atmospheric Agent"
-        
-        if not API_KEY or not ENDPOINT:
-            print(f"[{self.name}] ⚠️ No Azure OpenAI credentials found.")
-            self.model = None
-        else:
-            llm = AzureChatOpenAI(
-                azure_endpoint=ENDPOINT,
-                api_key=API_KEY,
-                api_version=API_VERSION,
-                deployment_name=DEPLOYMENT_NAME,
+
+        try:
+            llm = ChatOllama(
+                model=OLLAMA_MODEL,
+                base_url=OLLAMA_HOST,
                 temperature=0.2,
-                model_kwargs={"tool_choice": "auto", "parallel_tool_calls": False}
+                reasoning=False,
             )
 
             self.model_with_tools = llm.bind_tools([
-              #  ask_historian, 
-                ask_rag, 
+              #  ask_historian,
+                ask_rag,
                 web_search,
                 calculate_vpd,
                 diagnose_plant,
              #   ask_memory
             ])
+            # Same model, no tools bound — used once the tool-call budget is
+            # exhausted so the model can no longer call anything and must answer.
+            self.model_plain = llm
+        except Exception:
+            self.model_with_tools = None
+            self.model_plain = None
 
         self.app = self._build_graph()
 
     def _build_graph(self):
         workflow = StateGraph(AgentState)
 
-        workflow.add_node("decide", lambda state: decide_node(state, self.model_with_tools, ATMOS_PROMPT))
+        workflow.add_node("decide", lambda state: decide_node(state, self.model_with_tools, self.model_plain, ATMOS_PROMPT))
   
         workflow.add_node("tools", execute_tools_node)
 
@@ -93,7 +95,6 @@ class AtmosphericAgent:
             if state["simulation_result"]["passed"]:
                 return "finalize"
             elif state["retry_count"] > 3:
-                print(f"[{self.name}] ⚠️ Max retries reached. Forcing unsafe plan.")
                 return "finalize"
             else:
                 # Loop back to fix the mistake
@@ -121,9 +122,11 @@ class AtmosphericAgent:
             "image_b64": image_b64, # 🟢 Stored in state, waiting to be injected
             "retry_count": 0,
             "critique": None,
-            "messages": [] 
+            "tool_round_count": 0,
+            "tool_cache": {},
+            "messages": []
         }
-        
+
         result = self.app.invoke(initial_state)
 
    #     print(f"\n[{self.name}] Final Result: {result}")

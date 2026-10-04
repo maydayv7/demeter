@@ -1,18 +1,14 @@
 import json
 import os
-from openai import AzureOpenAI
+from ollama import Client
 from dotenv import load_dotenv
 
 load_dotenv()
 
 class ExplainerAgent:
     def __init__(self):
-        self.llm = AzureOpenAI(
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
-        )
-        self.deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
+        self.llm = Client(host=os.getenv("OLLAMA_HOST", "http://localhost:11434"))
+        self.deployment_name = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
 
     def explain(self, current_fmu, similar_fmus, sub_agent_reports, final_decision):
         """
@@ -45,14 +41,14 @@ class ExplainerAgent:
         """
 
         try:
-            response = self.llm.chat.completions.create(
+            response = self.llm.chat(
                 model=self.deployment_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": context}
                 ],
-                temperature=0.3 # Keep it factual
+                options={"temperature": 0.3} # Keep it factual
             )
-            return response.choices[0].message.content
+            return response["message"]["content"]
         except Exception as e:
             return f"Explanation unavailable: {str(e)}"

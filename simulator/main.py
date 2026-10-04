@@ -20,12 +20,20 @@ load_dotenv(env_path)
 
 MONGO_URI = os.environ.get("MONGODB_URI")
 mongo_client = MongoClient(MONGO_URI)
-db = mongo_client.get_default_database()
-crops_collection = db["cropstates"]
-sim_state_collection = db["simulator_state"]
+db = mongo_client["test"]  # Mongoose defaults to "test" when the URI has no db name segment
+
+# check db connection
+try:
+    mongo_client.admin.command("ping")
+    print("[DEBUG] Successfully connected to MongoDB")
+except Exception:
+    pass
 
 print(f"[DEBUG] MongoDB connected to DB: '{db.name}'")
 print(f"[DEBUG] MONGO_URI = {MONGO_URI[:40] if MONGO_URI else 'NOT SET'}...")
+
+crops_collection = db["cropstates"]
+sim_state_collection = db["simulation_state"]
 
 MODEL_PATH = "models/PPO/lettuce_brain_v1.zip"
 HISTORY_LEN = 20
@@ -156,6 +164,7 @@ class DigitalTwin:
             ).numpy()
 
         self.state += physics_delta + (nn_delta * 0.05)
+        self.state[0] = np.clip(self.state[0], 0, 14)
         self.state[3] = np.clip(self.state[3], 0, 50)
         self.state[4] = np.clip(self.state[4], 0, 100)
         self.state[5] = self._calculate_vpd(self.state[3], self.state[4])
@@ -222,13 +231,13 @@ def sync_simulators_from_db():
 async def get_all_states():
     clock = sim_state_collection.find_one_and_update(
         {"_id": "global_clock"},
-        {"$inc": {"tick_hours": 1}},
+        {"$inc": {"tick_hours": 10}},
         upsert=True,
         return_document=ReturnDocument.AFTER,
     )
     current_tick = clock["tick_hours"]
 
-    crops_collection.update_many({}, {"$inc": {"simulated_age_hours": 1}})
+    crops_collection.update_many({}, {"$inc": {"simulated_age_hours": 10}})
 
     sync_simulators_from_db()
 
@@ -240,7 +249,6 @@ async def get_all_states():
         if not cid:
             continue
         if cid not in simulators:
-            print(f"⚠️ Crop {cid} not in simulators after sync — skipping")
             continue
 
         crop_type = crop.get("crop", "lettuce").lower()

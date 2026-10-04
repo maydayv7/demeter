@@ -1,7 +1,7 @@
 import os
 import json
 import numpy as np
-from langchain_openai import AzureChatOpenAI
+from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 from agent.tools.actuation import convert_targets_to_actions
@@ -10,24 +10,36 @@ from agent.Marl.bandit import ContextualBandit
 from agent.Marl.strategies import STRATEGIES, NUM_ACTIONS
 from agent.Qdrant.Store import store_fmu
 from agent.sub_agents.water_and_atmospheric_dependencies.physics_engine import predict_outcome
+from agent.sub_agents.water_and_atmospheric_dependencies.json_extract import extract_json_object
 from dotenv import load_dotenv
 
 load_dotenv()
 
+def _safe_float(source, key, default):
+    """Coerce a plan field to float; falls back to `default` (and the caller's
+    own numeric-sanity check below will flag the field) if it's missing or the
+    LLM emitted something non-numeric (e.g. a string) — better than crashing
+    the whole cycle on a stray TypeError from bad LLM output."""
+    val = source.get(key, default)
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
 # --- NEW TOOLS DEFINITION ---
 def check_cross_domain_conflicts(atmos, water):
     conflicts = []
-    
+
     # 1. Thermal Shock Check
-    air_t = atmos.get('air_temp', 25)
-    water_t = water.get('water_temp', 20)
+    air_t = _safe_float(atmos, 'air_temp', 25)
+    water_t = _safe_float(water, 'water_temp', 20)
     if abs(air_t - water_t) > 10:
         conflicts.append(f"CRITICAL: Thermal Shock Risk. Air ({air_t}C) and Water ({water_t}C) delta > 10C.")
 
     # 2. Transpiration vs Uptake Check
     # High VPD (Dry) + High EC (Salty) = Burn Risk
-    rh = atmos.get('humidity', 60)
-    ec = water.get('ec', 1.0)
+    rh = _safe_float(atmos, 'humidity', 60)
+    ec = _safe_float(water, 'ec', 1.0)
     if rh < 50 and ec > 2.0:
         conflicts.append(f"STRESS: Low Humidity ({rh}%) + High EC ({ec}) will cause Tip Burn.")
 
@@ -35,12 +47,39 @@ def check_cross_domain_conflicts(atmos, water):
 
 def validate_hard_limits(plan):
     violations = []
+
+    # Any field present but not a valid number is itself a hard violation —
+    # a malformed plan should never sail through to the actuator.
+    for key in ('ph', 'ec', 'humidity', 'air_temp', 'water_temp', 'co2', 'light_intensity'):
+        if key in plan:
+            try:
+                float(plan[key])
+            except (TypeError, ValueError):
+                violations.append(f"'{key}' = {plan[key]!r} is not a valid number.")
+
+    ph = _safe_float(plan, 'ph', 6.0)
+    ec = _safe_float(plan, 'ec', 1.0)
+    humidity = _safe_float(plan, 'humidity', 60)
+    air_temp = _safe_float(plan, 'air_temp', 24)
+    water_temp = _safe_float(plan, 'water_temp', 20)
+    co2 = _safe_float(plan, 'co2', 400)
+    light_intensity = _safe_float(plan, 'light_intensity', 500)
+
     # Hard limits for Lettuce/General Hydroponics
-    if plan.get('ph', 6.0) < 5.0: violations.append("pH < 5.0 is toxic.")
-    if plan.get('ph', 6.0) > 7.5: violations.append("pH > 7.5 causes lockout.")
-    if plan.get('ec', 1.0) > 3.0: violations.append("EC > 3.0 is too high for lettuce.")
-    if plan.get('humidity', 60) > 85: violations.append("Humidity > 85% guarantees mold.")
-    
+    if ph < 5.0: violations.append("pH < 5.0 is toxic.")
+    if ph > 7.5: violations.append("pH > 7.5 causes lockout.")
+    if ec < 0: violations.append("EC < 0 is physically impossible.")
+    if ec > 3.0: violations.append("EC > 3.0 is too high for lettuce.")
+    if humidity < 0 or humidity > 100: violations.append(f"Humidity {humidity}% is physically impossible.")
+    if humidity > 85: violations.append("Humidity > 85% guarantees mold.")
+    if air_temp < 5: violations.append(f"Air temp {air_temp}C is frost/chill damage risk.")
+    if air_temp > 40: violations.append(f"Air temp {air_temp}C is heat-stress/lethal for lettuce.")
+    if water_temp < 5: violations.append(f"Water temp {water_temp}C is root-shock risk.")
+    if water_temp > 35: violations.append(f"Water temp {water_temp}C promotes root rot / kills roots.")
+    if co2 < 0: violations.append("CO2 < 0 is physically impossible.")
+    if co2 > 2000: violations.append(f"CO2 {co2}ppm is toxic to plants and unsafe for humans.")
+    if light_intensity < 0: violations.append("light_intensity < 0 is physically impossible.")
+
     return violations
 
 # --- STATE DEFINITION ---
@@ -51,34 +90,33 @@ class SupervisorState(TypedDict):
     atmos_plan: Dict[str, Any]
     water_plan: Dict[str, Any]
     strategy_advice: str  # Kept as advice, not law
-    
+    current_sensors: Dict[str, float]
+
     # Processing
     merged_plan: Dict[str, Any]
     review_notes: List[str]
+    hard_violations: List[str]   # Physically dangerous/impossible — never approved
+    soft_conflicts: List[str]    # Contextual trade-offs — LLM judgment call
     simulation_health: float
-    
+
     # Output
     final_decision: str # "APPROVE" or "REJECT"
     critique: str       # Feedback for sub-agents if Rejected
 
-API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
-ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
-DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
-API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:e2b")
 
 class SupervisorAgent:
     def __init__(self, researcher_agent=None):
         self.name = "Supervisor"
-        self.bandit = ContextualBandit(n_actions=NUM_ACTIONS, feature_dim=519)
-        
-        if API_KEY and ENDPOINT:
-            self.model = AzureChatOpenAI(
-                azure_endpoint=ENDPOINT,
-                api_key=API_KEY,
-                api_version=API_VERSION,
-                deployment_name=DEPLOYMENT_NAME,
-                temperature=0.0 # Zero temp for strict judging
-            )
+        self.bandit = ContextualBandit(n_actions=NUM_ACTIONS, feature_dim=515)
+
+        self.model = ChatOllama(
+            model=OLLAMA_MODEL,
+            base_url=OLLAMA_HOST,
+            temperature=0.0, # Zero temp for strict judging
+            reasoning=False,
+        )
         
         self.app = self._build_graph()
 
@@ -113,53 +151,74 @@ class SupervisorAgent:
     def node_review(self, state):
         print("   🔍 Supervisor Running Unit Tests...")
         plan = state['merged_plan']
-        notes = []
 
-        # Tool 1: Conflict Check
-        conflicts = check_cross_domain_conflicts(state['atmos_plan'], state['water_plan'])
-        if conflicts:
-            notes.extend(conflicts)
-            
-        # Tool 2: Limit Check
-        limits = validate_hard_limits(plan)
-        if limits:
-            notes.extend(limits)
-            
-        # Tool 3: Physics Simulator
-         # Comparing plan vs itself as a snapshot for now
-        health = 100
-        
-        if health < 90:
-            notes.append(f"SIMULATION FAIL: Predicted health drops to {health}%. ")
+        # Tool 1: Conflict Check (contextual — a trade-off call, not automatically fatal)
+        soft_conflicts = check_cross_domain_conflicts(state['atmos_plan'], state['water_plan'])
 
-        return {"review_notes": notes, "simulation_health": health}
+        # Tool 2: Limit Check (physically dangerous/impossible — never a trade-off)
+        hard_violations = validate_hard_limits(plan)
+
+        # Tool 3: Physics Simulator — actually run it now instead of a hardcoded stub
+        try:
+            prediction = predict_outcome(state.get('current_sensors', {}), plan)
+            health = prediction.get('predicted_health', 100)
+        except Exception:
+            health = 100
+
+        # NOTE: with a small local model, this "predicted health %" is a noisy
+        # single-shot LLM guess, not a calibrated simulation — observed to
+        # cluster around ~78% regardless of the actual plan. Gating tightly
+        # (e.g. <90) turns this into a near-constant rejection regardless of
+        # plan quality. Only flag genuinely severe predicted drops as a
+        # trade-off worth the LLM judge's attention.
+        if health < 60:
+            soft_conflicts.append(f"SIMULATION FAIL: Predicted health drops to {health}%.")
+
+        return {
+            "review_notes": hard_violations + soft_conflicts,
+            "hard_violations": hard_violations,
+            "soft_conflicts": soft_conflicts,
+            "simulation_health": health,
+        }
 
     def node_judge(self, state):
         """
         The LLM looks at the automated test results and makes the final call.
+        Hard, physically-dangerous violations are rejected deterministically —
+        no LLM is asked to rubber-stamp something like a negative EC target.
+        Only genuinely contextual trade-offs go to the LLM for judgment.
         """
         print("   ⚖️ Supervisor Judging...")
-        
-        if not state['review_notes']:
+
+        hard_violations = state.get('hard_violations', [])
+        soft_conflicts = state.get('soft_conflicts', [])
+
+        if hard_violations:
+            critique = "Hard safety limit(s) violated: " + "; ".join(hard_violations)
+            return {"final_decision": "REJECT", "critique": critique}
+
+        if not soft_conflicts:
             # No issues found by tools
             return {"final_decision": "APPROVE", "critique": "Plan looks solid."}
-        
-        # If issues exist, ask LLM if they are fatal or acceptable trade-offs
+
+        # Only soft/contextual conflicts remain — ask the LLM whether the
+        # strategy justifies them, with no bias toward either verdict.
         prompt = f"""
-        You are the Quality Assurance Supervisor.
-        
+        You are the Quality Assurance Supervisor reviewing a proposed hydroponic control plan.
+
         PROPOSED PLAN: {state['merged_plan']}
-        
-        AUTOMATED TEST FAILURES:
-        {json.dumps(state['review_notes'], indent=2)}
-        
+
+        ADVISORY WARNINGS (non-fatal, contextual trade-offs):
+        {json.dumps(soft_conflicts, indent=2)}
+
         ADVISORY STRATEGY: {state['strategy_advice']}
-        
+
         TASK:
-        1. BIAS: You should almost always APPROVE.
-        2. ONLY 'REJECT' if the plan is physically impossible or immediately fatal (e.g., pH < 3.0, Water Temp > 40°C).
-        3. IGNORE 'Simulation Fail' warnings if the Strategy justifies the extreme values (e.g., 'Flush' requires low EC).
-        4. Treat "Risk" warnings as acceptable trade-offs for the strategy.
+        Judge each warning on its merits — do not default to either verdict.
+        - APPROVE if the warnings are minor, or clearly justified by the stated strategy
+          (e.g. a 'Flush' strategy justifying a low EC target).
+        - REJECT if a warning indicates real risk to plant health that the strategy does
+          not justify.
         OUTPUT JSON: {{ "verdict": "APPROVE" or "REJECT", "critique": "Explanation..." }}
         """
 
@@ -168,15 +227,16 @@ class SupervisorAgent:
         try:
             response = self.model.invoke([HumanMessage(content=prompt)])
             content = response.content.replace("```json", "").replace("```", "").strip()
-            result = json.loads(content)
-            
+            json_candidate = extract_json_object(content) or content
+            result = json.loads(json_candidate)
+
             return {
                 "final_decision": result.get("verdict", "REJECT"),
                 "critique": result.get("critique", "Automated tests failed.")
             }
-        except:
-            # Default to reject if unsafe
-            return {"final_decision": "REJECT", "critique": "Plan failed automated safety checks."}
+        except Exception as e:
+            # Default to reject if unsafe.
+            return {"final_decision": "REJECT", "critique": f"Automated tests failed (judge error: {e})."}
 
 
 
@@ -185,23 +245,39 @@ class SupervisorAgent:
 
     def synthesize_plan(self, atmos_plan, water_plan, fmu, history, strategy_info):
         strategy_name, _, action_idx = strategy_info
-        
+
+        current_sensors = fmu.metadata.get('sensors', {})
+
         initial_state = {
             "atmos_plan": atmos_plan,
             "water_plan": water_plan,
             "strategy_advice": strategy_name,
+            "current_sensors": current_sensors,
             "merged_plan": {},
             "review_notes": [],
+            "hard_violations": [],
+            "soft_conflicts": [],
             "simulation_health": 0.0,
             "final_decision": "",
             "critique": ""
         }
-        
+
         result = self.app.invoke(initial_state)
         final_targets = result.get("merged_plan", {})
+        verdict = result.get("final_decision", "APPROVE")
+        critique = result.get("critique", "")
 
-        current_sensors = fmu.metadata.get('sensors', {})
-        
+        if verdict == "REJECT":
+            # Target == current reading means the actuation layer computes a
+            # ~zero error for every field, so nothing gets dosed/actuated this
+            # cycle rather than risk applying a plan flagged as dangerous.
+            final_targets = {
+                "air_temp": current_sensors.get("temp", 25),
+                "humidity": current_sensors.get("humidity", 60),
+                "ph": current_sensors.get("pH", 6.0),
+                "ec": current_sensors.get("EC", 1.5),
+            }
+
         print(f"[{self.name}] ⚙️ Converting Targets to Actuator Commands...")
 
         sensor_vals = [
@@ -244,7 +320,7 @@ class SupervisorAgent:
         fmu_vector = fmu.vector
         vis_vec1 = np.array(fmu_vector) if isinstance(fmu_vector, list) else fmu_vector
         vis_vec = vis_vec1[:512] if len(vis_vec1) >= 512 else None
-        if vis_vec is None or len(vis_vec) == 0: vis_vec = np.zeros(516)
+        if vis_vec is None or len(vis_vec) == 0: vis_vec = np.zeros(512)
         
         s_vec = np.array([
             (float(sensors.get('pH', 6.0)) - 6.0) / 2.0, 
@@ -254,7 +330,14 @@ class SupervisorAgent:
         context_vector = np.concatenate([vis_vec, s_vec])
 
       #  print("Context Vector for Bandit:", context_vector.shape)
-        
+
+        # Stash the exact context vector used for this decision so JudgeAgent
+        # can feed it back into bandit.update() next cycle. The FMU's own
+        # .vector is 519-dim (512 CLIP + 7 LSTM sensor encoding) and does NOT
+        # match this bandit's 515-dim feature space — using it directly would
+        # crash or corrupt the model, so it's kept separate here.
+        fmu.metadata["bandit_context_vector"] = context_vector.tolist()
+
         action_idx, _ = self.bandit.select_action(context_vector)
         strategy_name = STRATEGIES[action_idx]
         

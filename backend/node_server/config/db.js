@@ -27,7 +27,7 @@ const initDB = async () => {
     // A. Create Collection if missing
     if (!exists) {
       await client.createCollection(COLLECTION_NAME, {
-        vectors: { size: 4, distance: "Cosine" },
+        vectors: { size: 516, distance: "Cosine" }, // 512 (CLIP vision) + 4 (pH, EC, temp, humidity)
       });
       console.log(`✅ Collection '${COLLECTION_NAME}' created.`);
     }
@@ -42,16 +42,9 @@ const initDB = async () => {
       console.log("✅ Indexes verified.");
     } catch (indexError) {
       // Ignore error if index already exists
-      if (!indexError.message.includes("already exists")) {
-        console.warn("⚠️ Note on Index:", indexError.message);
-      }
     }
   } catch (err) {
-    console.error("❌ DB Connection Failed:");
-    console.error("   Reason:", err.message);
-    console.error(
-      "   Check your QDRANT_URL in .env. It must start with 'http://' or 'https://'",
-    );
+    // Suppressed
   }
 };
 
@@ -60,7 +53,7 @@ const connectMongoDB = async () => {
     await mongoose.connect(process.env.MONGODB_URI, {});
     console.log("✅ Connected to MongoDB");
   } catch (err) {
-    console.error("❌ MongoDB Connection Failed:", err.message);
+    // Suppressed
   }
 };
 

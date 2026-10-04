@@ -11,12 +11,14 @@ aiofiles>=24.1.0
 # AI Orchestration
 langchain>=0.3.0
 langchain-core>=0.3.0
-langchain-openai>=0.2.0
+langchain-ollama>=1.1.0
 langgraph>=0.2.0
 langchain-community>=0.3.0
 
-# Azure SDKs
-openai>=1.50.0
+# LLM (local)
+ollama>=0.6.0
+
+# Azure SDKs (Digital Twins telemetry only)
 azure-identity>=1.19.0
 azure-digitaltwins-core>=1.2.0
 

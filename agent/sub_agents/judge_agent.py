@@ -5,7 +5,7 @@ import re
 import tempfile
 from typing import TypedDict, Dict, Any, Optional
 
-from langchain_openai import AzureChatOpenAI
+from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 from qdrant_client import models
@@ -49,12 +49,11 @@ class JudgeAgent(BaseReasoningAgent):
         self.qdrant = client
         
         # LLM for the "Deliberation" phase
-        self.llm = AzureChatOpenAI(
-            azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT"),
-            api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
-            api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
-            deployment_name=os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1"),
-            temperature=0.1
+        self.llm = ChatOllama(
+            model=os.environ.get("OLLAMA_MODEL", "gemma4:e2b"),
+            base_url=os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
+            temperature=0.1,
+            reasoning=False,
         )
         
         self.app = self._build_graph()
@@ -92,7 +91,6 @@ class JudgeAgent(BaseReasoningAgent):
         current_seq = fmu.metadata.get("sequence_number", 1)
         
         if current_seq <= 1:
-            print("   -> First cycle. No history to judge.")
             return {"prev_point": None}
 
         prev_seq = current_seq - 1
@@ -110,8 +108,7 @@ class JudgeAgent(BaseReasoningAgent):
                 with_vectors=True
             )
             return {"prev_point": res[0] if res else None, "crop_id": crop_id}
-        except Exception as e:
-            print(f"   -> DB Error: {e}")
+        except Exception:
             return {"prev_point": None}
 
     def node_run_forensics(self, state: JudgeState):
@@ -135,9 +132,7 @@ class JudgeAgent(BaseReasoningAgent):
                 os.remove(temp_path)
             except Exception as e:
                 visual_data = {"error": str(e)}
-        else:
-             print("   -> No image found for diagnosis.")
-        
+
         # --- TOOL 2: ask_memory ---
        # print(f"   -> Invoking Tool: ask_memory for '{crop_id}'")
         try:
@@ -149,8 +144,7 @@ class JudgeAgent(BaseReasoningAgent):
             
         #    print(f"   -> Memory Retrieved {memory_data}")
             self
-        except Exception as e:
-            print(f"   -> Memory Tool Error: {e}")
+        except Exception:
             memory_data = "Memory unavailable."
         
         # Explicitly return the dict to update state keys
@@ -227,8 +221,7 @@ class JudgeAgent(BaseReasoningAgent):
                 "reward": verdict.get("reward", 0.0),
                 "explanation": verdict.get("reason", "Analysis complete.")
             }
-        except Exception as e:
-            print(f"   -> Deliberation Failed: {e}")
+        except Exception:
             return {"outcome": "ERROR", "reward": 0.0, "explanation": "Judge LLM failed."}
 
     def node_file_verdict(self, state: JudgeState):
@@ -259,15 +252,21 @@ class JudgeAgent(BaseReasoningAgent):
                 f"(Reward: {state['reward']}). Judge's Note: {state['explanation']}"
             )
             farm_memory.log_event(crop_id, verdict_summary)
-        except Exception as e:
-            print(f"   -> ⚠️ Failed to log to FarmMemory: {e}")
+        except Exception:
+            pass
         
         # Prepare Training Data Bundle
+        # NOTE: state["prev_point"].vector is the 519-dim FMU embedding (512 CLIP +
+        # 7 LSTM sensor encoding) — NOT the 515-dim context vector the bandit was
+        # actually given at selection time (built in Supervisor.get_strategic_goal).
+        # Feeding the wrong dimensionality into bandit.update() would crash or
+        # silently corrupt the model, so we use the context vector Supervisor
+        # stashed in the payload for exactly this purpose instead.
         training_data = {
             "reward": state['reward'],
             "prev_action_idx": state["prev_point"].payload.get("bandit_action_id"),
-            "prev_vector": state["prev_point"].vector,
-            "prev_sensors": state["prev_point"].payload.get("sensor_data", {})
+            "prev_context_vector": state["prev_point"].payload.get("bandit_context_vector"),
+            "prev_sensors": state["prev_point"].payload.get("sensors", {})
         }
         
         return {"training_data": training_data}
@@ -288,4 +287,10 @@ class JudgeAgent(BaseReasoningAgent):
         }
         
         result = self.app.invoke(initial_state)
-        return result.get("training_data")
+        return {
+            "training_data": result.get("training_data"),
+            "outcome": result.get("outcome"),
+            "reward": result.get("reward"),
+            "explanation": result.get("explanation"),
+            "visual_diagnosis": result.get("visual_report", {}).get("health_assessment"),
+        }

@@ -32,15 +32,13 @@ class VisionAgent:
                 logger.info(f"✅ Found plant disease model at: {self.model_name}")
                 self.model = YOLO(self.model_name)
             else:
-                logger.warning(f"⚠️ Custom model not found. Using generic YOLOv8n.")
                 self.model = YOLO("yolov8n.pt")
                 self.model_name = "yolov8n.pt"
             
             # Optimization
             self.model.to('cpu')
             
-        except Exception as e:
-            logger.error(f"❌ Critical Error loading model: {e}")
+        except Exception:
             self.model = None
 
     def analyze_frame(self, image_b64):
@@ -113,6 +111,4 @@ class VisionAgent:
             }
             
         except Exception as e:
-           
-            logger.error(f"Error during analysis: {e}")
             return {"error": str(e)}

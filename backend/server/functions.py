@@ -251,8 +251,6 @@ async def process_search(file: UploadFile, sensors_str: str, builder):
         }
 
     except Exception as e:
-        print(f"❌ Pipeline Error: {e}")
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         # Cleanup temp file
@@ -582,10 +580,6 @@ async def process_text_query(text: str, crop_id: str = None):
         }
 
     except Exception as e:
-        print(f"❌ Text Search Error: {e}")
-        import traceback
-
-        traceback.print_exc()
         return {"status": "error", "message": str(e)}
 
 
@@ -610,7 +604,6 @@ async def process_audio_search(file: UploadFile):
         return response_data
 
     except Exception as e:
-        print(f"❌ Audio Search Error: {e}")
         return {"status": "error", "message": str(e)}
 
     finally:
@@ -669,7 +662,6 @@ LANGUAGE: {lang_instr}"""
         return {"status": "success", "thinking": thinking, "answer": answer}
 
     except Exception as e:
-        traceback.print_exc()
         return {"status": "error", "message": str(e)}
 
 
@@ -772,5 +764,4 @@ async def process_similar_crops(crop_id: str, crop_name: str, payload_json: str)
         }
 
     except Exception as e:
-        traceback.print_exc()
         return {"status": "error", "message": str(e), "results": []}

@@ -1,5 +1,5 @@
 import os
-from langchain_openai import AzureChatOpenAI
+from langchain_ollama import ChatOllama
 from langgraph.graph import StateGraph, END
 
 # Graph State & Nodes
@@ -11,10 +11,8 @@ from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import ask_hi
 from agent.sub_agents.water_and_atmospheric_dependencies.tools import check_ph_safety, web_search
 
 # Configuration
-API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
-ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
-DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
-API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:e2b")
 
 # 🟢 UPDATE 1: Mention visual data availability in the prompt
 WATER_PROMPT = """
@@ -34,7 +32,13 @@ History: {history}
 Critique from Simulation: {critique}
 Visual Data: The latest camera image is available via the 'diagnose_plant' tool.
 
-TASK: Output ONLY a valid JSON object with keys: 'ph', 'ec', 'water_temp'. Do not include markdown formatting, code blocks, or any explanatory text outside the JSON. Return strictly the raw JSON.
+TASK: Output ONLY a valid JSON object with keys: 'ph', 'ec', 'water_temp'.
+Each value is the ABSOLUTE TARGET you want the reservoir to reach this cycle
+(e.g. 'ph': 6.0 means "set pH to 6.0") — NOT a delta or change amount. These
+values are fed directly into a dosing controller that computes
+target_value - current_value on its own; do not pre-subtract the current
+reading yourself.
+Do not include markdown formatting, code blocks, or any explanatory text outside the JSON. Return strictly the raw JSON.
 If you suspect root rot or issues with nutrient uptake (e.g. yellowing leaves), call 'diagnose_plant()' (with no arguments) to verify.
 """
 
@@ -43,27 +47,28 @@ class WaterAgent:
         self.name = "Water Agent"
         
         # 1. Initialize Model
-        if not API_KEY or not ENDPOINT:
-            print(f"[{self.name}] ⚠️ No Azure OpenAI credentials found.")
-            self.model = None
-        else:
-            llm = AzureChatOpenAI(
-                azure_endpoint=ENDPOINT,
-                api_key=API_KEY,
-                api_version=API_VERSION,
-                deployment_name=DEPLOYMENT_NAME,
+        try:
+            llm = ChatOllama(
+                model=OLLAMA_MODEL,
+                base_url=OLLAMA_HOST,
                 temperature=0.2,
-                model_kwargs={"tool_choice": "auto", "parallel_tool_calls": False}
+                reasoning=False,
             )
-            
+
             # 2. BIND TOOLS
             self.model_with_tools = llm.bind_tools([
-             #   ask_historian, 
+             #   ask_historian,
                 web_search,
                 check_ph_safety,
                 diagnose_plant, # 🟢 Tool is already here
              #   ask_memory
             ])
+            # Same model, no tools bound — used once the tool-call budget is
+            # exhausted so the model can no longer call anything and must answer.
+            self.model_plain = llm
+        except Exception:
+            self.model_with_tools = None
+            self.model_plain = None
         
         # 3. Build the Graph
         self.app = self._build_graph()
@@ -72,7 +77,7 @@ class WaterAgent:
         workflow = StateGraph(AgentState)
 
         # Nodes
-        workflow.add_node("decide", lambda state: decide_node(state, self.model_with_tools, WATER_PROMPT))
+        workflow.add_node("decide", lambda state: decide_node(state, self.model_with_tools, self.model_plain, WATER_PROMPT))
         workflow.add_node("tools", execute_tools_node)
         workflow.add_node("simulate", simulate_node)
         workflow.add_node("finalize", finalize_node)
@@ -97,7 +102,6 @@ class WaterAgent:
             if state["simulation_result"]["passed"]:
                 return "finalize"
             elif state["retry_count"] > 3:
-                print(f"[{self.name}] ⚠️ Max retries reached. Forcing unsafe plan.")
                 return "finalize"
             else:
                 return "decide"
@@ -125,9 +129,11 @@ class WaterAgent:
             "image_b64": image_b64, # 🟢 Stored in state for injection
             "retry_count": 0,
             "critique": None,
-            "messages": [] 
+            "tool_round_count": 0,
+            "tool_cache": {},
+            "messages": []
         }
-        
+
         result = self.app.invoke(initial_state)
       #  print(f"\n[{self.name}] Final Result: {result}")
         return result.get("final_action", {})

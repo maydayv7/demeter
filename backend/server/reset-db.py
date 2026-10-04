@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+
 # --- CONFIGURATION ---
 COLLECTION_NAME = "Farm_Memory"
 VECTOR_SIZE = 516  # 512 (Vision) + 4 (Sensors: pH, EC, Temp, Humid)
@@ -27,8 +30,6 @@ def reset_db():
         print(f"🔥 Deleting existing collection '{COLLECTION_NAME}'...")
         client.delete_collection(COLLECTION_NAME)
         print("✅ Deleted.")
-    else:
-        print(f"⚠️ Collection '{COLLECTION_NAME}' did not exist.")
 
     # 4. Create the New Collection
     print(f"🛠️ Creating collection '{COLLECTION_NAME}' with {VECTOR_SIZE} dimensions...")
@@ -61,8 +62,8 @@ def reset_db():
                 field_schema=models.PayloadSchemaType.KEYWORD
             )
             print(f"   👉 Indexed (Keyword): '{field}'")
-        except Exception as e:
-            print(f"   ⚠️ Error indexing '{field}': {e}")
+        except Exception:
+            pass
 
     # B. Numeric Fields (Integer)
     # 👇 NEW: Index sequence_number so we can sort by it later
@@ -73,8 +74,8 @@ def reset_db():
             field_schema=models.PayloadSchemaType.INTEGER
         )
         print(f"   👉 Indexed (Integer): 'sequence_number'")
-    except Exception as e:
-        print(f"   ⚠️ Error indexing 'sequence_number': {e}")
+    except Exception:
+        pass
 
     print("\n🎉 Database Reset Complete! You are ready to ingest data.")
 

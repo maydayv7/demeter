@@ -1,35 +1,30 @@
 import os
 import json
-from langchain_openai import AzureChatOpenAI
+from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
+
+from agent.sub_agents.water_and_atmospheric_dependencies.json_extract import extract_json_object
 
 load_dotenv()
 
 # Configuration
-API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
-ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
-DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
-API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:e2b")
 
 
 def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
     """
-    Stateless 'What-If' Engine using Azure OpenAI (LLM-based Physics).
+    Stateless 'What-If' Engine using a local Ollama model (LLM-based Physics).
     Takes a snapshot and an action, returns the PREDICTED future state.
     """
-    if not API_KEY or not ENDPOINT:
-        print("   ⚠️ Physics Engine Error: Missing Azure OpenAI credentials")
-        return {"predicted_health": 50.0, "risk_warning": "No API Key configured"}
-
-    # Initialize Azure OpenAI Client
-    llm = AzureChatOpenAI(
-        azure_endpoint=ENDPOINT,
-        api_key=API_KEY,
-        api_version=API_VERSION,
-        deployment_name=DEPLOYMENT_NAME,
+    # Initialize Ollama Client
+    llm = ChatOllama(
+        model=OLLAMA_MODEL,
+        base_url=OLLAMA_HOST,
         temperature=0.1,  # Low temp for consistent physics logic
-        max_tokens=1024,
+        num_predict=1024,
+        reasoning=False,
     )
 
     system_prompt = (
@@ -56,7 +51,8 @@ def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
 
         # Clean and Parse JSON
         content = response.content.replace("```json", "").replace("```", "").strip()
-        result = json.loads(content)
+        json_candidate = extract_json_object(content) or content
+        result = json.loads(json_candidate)
 
         # Default fallback keys if the LLM misses them
         return {
@@ -64,8 +60,7 @@ def predict_outcome(current_state: dict, proposed_action: dict) -> dict:
             "risk_warning": result.get("risk_warning", "Unknown Risk"),
         }
 
-    except Exception as e:
-        print(f"   ⚠️ Physics Engine Error: {e}")
+    except Exception:
         return {
             "predicted_health": 70.0,
             "risk_warning": "Simulation Connection Failed",

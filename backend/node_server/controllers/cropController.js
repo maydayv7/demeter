@@ -15,10 +15,10 @@ function fakeSensorId(prefix) {
 
 /** Auto cycle_duration_hours per crop type */
 const CYCLE_HOURS = {
-  lettuce: 1,
-  basil: 1,
-  tomato: 2,
-  strawberry: 2,
+  lettuce: 10,
+  basil: 10,
+  tomato: 20,
+  strawberry: 20,
 };
 
 function cycleDurationForCrop(cropName) {

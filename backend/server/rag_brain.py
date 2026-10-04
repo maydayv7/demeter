@@ -8,8 +8,12 @@ from fastembed import TextEmbedding
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../../'))
 sys.path.append(project_root)
+sys.path.append(os.path.join(project_root, "agent"))
 
-from Qdrant.Client import client  
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+
+from Qdrant.Client import client
 
 # --- CONFIGURATION ---
 COLLECTION_NAME = "Knowledge_Base"
@@ -44,8 +48,8 @@ def extract_text_from_pdf(pdf_path):
             page_text = page.extract_text()
             if page_text:
                 text += page_text + "\n"
-    except Exception as e:
-        print(f"❌ Error reading PDF {pdf_path}: {e}")
+    except Exception:
+        pass
     return text
 
 def chunk_text(text, chunk_size=500, overlap=50):
@@ -67,13 +71,11 @@ def ingest_docs():
     # 2. Check if folder exists
     if not os.path.exists(DOCS_FOLDER):
         os.makedirs(DOCS_FOLDER)
-        print(f"⚠️ Created folder '{DOCS_FOLDER}'. Please put your PDFs there and run this script again!")
         return
 
     # 3. Scan for files
     files = [f for f in os.listdir(DOCS_FOLDER) if f.endswith(('.pdf', '.txt'))]
     if not files:
-        print(f"📭 No files found in '{DOCS_FOLDER}'. Add some PDFs!")
         return
 
     print(f"📚 Found {len(files)} documents. Starting ingestion...")
@@ -92,7 +94,6 @@ def ingest_docs():
                 content = f.read()
 
         if not content.strip():
-            print(f"      ⚠️ Skipping empty file.")
             continue
 
         # B. Chunk Text
@@ -117,8 +118,11 @@ def ingest_docs():
                 }
             ))
 
-        # E. Upload Batch
-        client.upsert(collection_name=COLLECTION_NAME, points=points)
+        # E. Upload in small batches so one large file can't time out a single request
+        UPLOAD_BATCH_SIZE = 64
+        for batch_start in range(0, len(points), UPLOAD_BATCH_SIZE):
+            batch = points[batch_start:batch_start + UPLOAD_BATCH_SIZE]
+            client.upsert(collection_name=COLLECTION_NAME, points=batch)
         total_chunks += len(points)
         print(f"      ✅ Uploaded {len(points)} chunks.")
 
