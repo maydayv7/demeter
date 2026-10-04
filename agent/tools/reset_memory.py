@@ -17,5 +17,3 @@ if client.collection_exists(collection_name):
     print(f"🗑️  Deleting mismatched collection: {collection_name}...")
     client.delete_collection(collection_name)
     print("✅ Collection deleted. Restart your main script now!")
-else:
-    print(f"⚠️  Collection {collection_name} not found. You are good to go.")

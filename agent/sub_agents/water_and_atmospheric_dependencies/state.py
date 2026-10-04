@@ -16,6 +16,12 @@ class AgentState(TypedDict):
     critique: Optional[str]
     retry_count: int
 
+    # Tool-call loop guards: how many tool-calling rounds have happened so far
+    # (separate from retry_count, which only counts draft/simulate attempts),
+    # and a name+args -> result cache so an identical call isn't re-invoked.
+    tool_round_count: int
+    tool_cache: Dict[str, str]
+
     messages: List[BaseMessage]
     
     # Final Output

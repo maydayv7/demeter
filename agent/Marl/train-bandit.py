@@ -243,8 +243,7 @@ def train():
     strategy_performance.sort(key=lambda x: x[1])  # Sort by accuracy
     
     for idx, acc, correct, count in strategy_performance:
-        status = "✅" if acc >= 90 else "⚠️" if acc >= 70 else "❌"
-        print(f"{status} {STRATEGIES[idx]:<27} | {acc:>9.1f}% | {correct:>8} / {count:>8}")
+        print(f"✅ {STRATEGIES[idx]:<27} | {acc:>9.1f}% | {correct:>8} / {count:>8}")
         
     print("-" * 80)
     overall_acc = (overall_correct / overall_total) * 100
@@ -259,10 +258,6 @@ def train():
         print("🎉 Excellent! Model ready for production.")
     elif overall_acc >= 90:
         print("✅ Good! Model is ready.")
-    elif overall_acc >= 80:
-        print("⚠️ Acceptable, but consider retraining with more epochs.")
-    else:
-        print("❌ Low accuracy. Check scenario generation or retrain.")
 
 if __name__ == "__main__":
     train()

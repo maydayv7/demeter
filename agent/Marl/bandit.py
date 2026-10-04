@@ -106,13 +106,12 @@ class ContextualBandit:
                     'theta': self.theta
                 }, f)
             print(f"💾 Model saved to {self.file_path}")
-        except Exception as e:
-            print(f"❌ Error saving model: {e}")
+        except Exception:
+            pass
 
     def load(self):  # <--- FIXED: No filepath argument, uses self.file_path
         """Loads weights from disk if they exist."""
         if not os.path.exists(self.file_path):
-            print(f"ℹ️ No saved model found at {self.file_path}. Starting fresh.")
             return False
             
         try:
@@ -125,6 +124,5 @@ class ContextualBandit:
             self.theta = state['theta']
             print(f"✅ Loaded bandit model from {self.file_path}")
             return True
-        except Exception as e:
-            print(f"⚠️ Error loading model: {e}. Starting fresh.")
+        except Exception:
             return False

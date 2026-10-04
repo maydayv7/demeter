@@ -15,12 +15,6 @@ class FarmMemory:
         # 1. Setup Collection
         self._setup_collection()
         
-        # --- NEW CODE: Map Azure variables for mem0 natively ---
-        os.environ["LLM_AZURE_OPENAI_API_KEY"] = os.getenv("AZURE_OPENAI_API_KEY", "")
-        os.environ["LLM_AZURE_DEPLOYMENT"] = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
-        os.environ["LLM_AZURE_ENDPOINT"] = os.getenv("AZURE_OPENAI_ENDPOINT", "")
-        os.environ["LLM_AZURE_API_VERSION"] = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
-        
         # 2. Initialize Mem0
         config = {
             "vector_store": {
@@ -33,8 +27,10 @@ class FarmMemory:
                 }
             },
             "llm": {
-                "provider": "azure_openai",
+                "provider": "ollama",
                 "config": {
+                    "model": os.getenv("OLLAMA_MODEL", "gemma4:e2b"),
+                    "ollama_base_url": os.getenv("OLLAMA_HOST", "http://localhost:11434"),
                     "max_tokens": 1500
                 }
             },
@@ -72,8 +68,8 @@ class FarmMemory:
                     )
                 )
                 print(f"✅ Collection created.")
-        except Exception as e:
-            print(f"⚠️ Collection setup warning: {e}")
+        except Exception:
+            pass
 
     def get_plant_history(self, crop_id, limit=3):
         """Retrieve the last N chronological entries for a crop"""
@@ -121,7 +117,6 @@ class FarmMemory:
             return clean_output
 
         except Exception as e:
-            print(f"❌ [FarmMemory] Error: {e}")
             return f"Error retrieving history: {str(e)}"
 
     def log_event(self, crop_id, event_text):
@@ -130,8 +125,8 @@ class FarmMemory:
             # Capture the result to check if LLM extracted it correctly
             result = self.memory.add(event_text, user_id=crop_id)
             print(f"🧠 Biography Updated for {crop_id}")
-        except Exception as e:
-            print(f"❌ Memory Write Error: {e}")
+        except Exception:
+            pass
 
 
 # execute

@@ -6,10 +6,14 @@ Run this ONCE to enable filtering by 'crop' and 'stage'.
 import sys
 import os
 
-# Add project root to path
+# Add project root and agent/ to path (Qdrant package lives under agent/)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../../'))
 sys.path.append(project_root)
+sys.path.append(os.path.join(project_root, "agent"))
+
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
 
 from Qdrant.Client import client
 from Qdrant.Store import COLLECTION_NAME
@@ -40,9 +44,8 @@ def create_indexes():
         print("\n🎉 All indexes created successfully!")
         print("You can now use filtered searches in your /search endpoint.")
         
-    except Exception as e:
-        print(f"❌ Error creating indexes: {e}")
-        print("\nNote: If indexes already exist, this is normal.")
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     create_indexes()

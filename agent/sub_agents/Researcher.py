@@ -1,8 +1,8 @@
 import uuid
 from qdrant_client import models
 from fastembed import TextEmbedding
-from Qdrant.Client import client 
-from openai import AzureOpenAI
+from Qdrant.Client import client
+from ollama import Client as OllamaClient
 import os
 from dotenv import load_dotenv
 
@@ -11,12 +11,8 @@ load_dotenv()
 class ResearcherAgent:
     def __init__(self):
         self.client = client
-        self.llm = AzureOpenAI(
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
-        )
-        self.deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
+        self.llm = OllamaClient(host=os.getenv("OLLAMA_HOST", "http://localhost:11434"))
+        self.deployment_name = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
         self.collection = "Knowledge_Base"
         # FastEmbed is lightweight and runs locally on CPU
         self.encoder = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")

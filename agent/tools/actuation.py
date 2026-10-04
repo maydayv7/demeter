@@ -1,3 +1,4 @@
+import re
 from pydantic import BaseModel
 from typing import Dict, Any
 
@@ -15,6 +16,23 @@ class FarmAction(BaseModel):
 RESERVOIR_LITERS = 50.0 
 PH_STRENGTH = 0.02  # 1ml changes 50L by 0.02 pH
 EC_STRENGTH = 0.05  # 1ml changes 50L by 0.05 EC
+
+def _lookup_float(source: Dict[str, Any], key: str, default: float) -> float:
+    """Case-insensitive field lookup coerced to float.
+
+    Targets come straight out of LLM-generated JSON, so a field can arrive as a
+    string ('6.0'), a range ('6.0-6.5'), or prose — dosing arithmetic on that
+    raises TypeError and kills the whole cycle. Fall back to `default` instead.
+    """
+    val = next((v for k, v in source.items() if k.lower() == key.lower()), default)
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        pass
+    # Salvage a leading number from strings like '6.0-6.5', '6.2 pH', '~24C'.
+    match = re.search(r'-?\d+(?:\.\d+)?', str(val))
+    return float(match.group()) if match else default
+
 
 def convert_targets_to_actions(current_state: Dict[str, float], target_state: Dict[str, float]) -> FarmAction:
     """
@@ -53,8 +71,8 @@ def convert_targets_to_actions(current_state: Dict[str, float], target_state: Di
             action.base_dosage_ml = round(dose, 2)
 
     # 2. EC CONTROL (Nutrients/Water)
-    current_ec = next((v for k, v in current_state.items() if k.lower() == 'ec'), 6.0)
-    target_ec = next((v for k, v in target_state.items() if k.lower() == 'ec'), 6.0)
+    current_ec = _lookup_float(current_state, 'ec', 6.0)
+    target_ec = _lookup_float(target_state, 'ec', current_ec)
     ec_error = target_ec - current_ec
     
     # Track water needed for EC control

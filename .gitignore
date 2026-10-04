@@ -1,4 +1,5 @@
 .env
+config.txt
 .venv
 node_modules/
 __pycache__/
@@ -7,3 +8,5 @@ Knowledge_Base
 /agent/training_data
 *.pkl
 *.pt
+CLAUDE.md
+.claude

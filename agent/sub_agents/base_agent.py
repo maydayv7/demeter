@@ -1,53 +1,40 @@
 import os
-from openai import AzureOpenAI
+from ollama import Client
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- AZURE OPENAI CONFIGURATION ---
-DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
-API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
-ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
-API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+# --- OLLAMA CONFIGURATION ---
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:e2b")
 
 class BaseReasoningAgent:
     def __init__(self, name):
         self.name = name
 
-        if not API_KEY or not ENDPOINT:
-            print(f"[{self.name}] ⚠️ WARNING: Azure OpenAI credentials not found in environment.")
+        try:
+            self.client = Client(host=OLLAMA_HOST)
+        except Exception:
             self.client = None
-        else:
-            try:
-                self.client = AzureOpenAI(
-                    api_key=API_KEY,
-                    api_version=API_VERSION,
-                    azure_endpoint=ENDPOINT
-                )
-            except Exception as e:
-                print(f"[{self.name}] ⚠️ Azure OpenAI Connection Error: {e}")
-                self.client = None
 
     def _call_llm(self, prompt):
         """
-        Helper method to send prompts to Azure OpenAI.
+        Helper method to send prompts to the local Ollama model.
         """
         if not self.client:
-            return "Error: LLM Client not connected (Check API Key)."
-        
+            return "Error: LLM Client not connected (Check OLLAMA_HOST)."
+
         print("Other Prompt:\n", prompt)
         try:
-            # Azure OpenAI Chat Completion Structure
-            response = self.client.chat.completions.create(
-                model=DEPLOYMENT_NAME,
+            response = self.client.chat(
+                model=OLLAMA_MODEL,
                 messages=[
                     {"role": "system", "content": f"You are the {self.name} Agent for a high-tech hydroponic farm."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.6, 
-                max_tokens=1024
+                options={"temperature": 0.6, "num_predict": 1024}
             )
-            return response.choices[0].message.content
-            
+            return response["message"]["content"]
+
         except Exception as e:
             return f"Reasoning Error: {e}"

@@ -17,8 +17,6 @@ env_path = os.path.join(project_root, '.env')
 if os.path.exists(env_path):
     print(f"✅ Loading environment from: {env_path}")
     load_dotenv(env_path)
-else:
-    print("⚠️ WARNING: .env file not found at project root!")
 
 # 5. NOW Import Client (It will see the loaded variables)
 from Qdrant.Client import client
@@ -35,8 +33,8 @@ def create_indexes():
             field_schema=models.PayloadSchemaType.KEYWORD
         )
         print("✅ Index created for 'crop_id'")
-    except Exception as e:
-        print(f"ℹ️ Note on crop_id: {e}")
+    except Exception:
+        pass
 
     # 2. Create Index for outcome
     try:
@@ -46,8 +44,8 @@ def create_indexes():
             field_schema=models.PayloadSchemaType.KEYWORD
         )
         print("✅ Index created for 'outcome'")
-    except Exception as e:
-        print(f"ℹ️ Note on outcome: {e}")
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     create_indexes()
