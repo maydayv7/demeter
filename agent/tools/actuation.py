@@ -43,10 +43,18 @@ def convert_targets_to_actions(current_state: Dict[str, float], target_state: Di
 
     print(f"Current State: {current_state}")
     print(f"Target State: {target_state}")
-
+    
+    # Extract common values
+    current_temp = current_state.get('air_temp', 25)
+    target_temp = target_state.get('air_temp', 25)
+    current_rh = current_state.get('humidity', 60)
+    target_rh = target_state.get('humidity', 60)
+    current_light = current_state.get('light_intensity', 50)
+    target_light = target_state.get('light_intensity', 50)
+    
     # 1. pH CONTROL (Acid/Base)
-    current_ph = _lookup_float(current_state, 'ph', 6.0)
-    target_ph = _lookup_float(target_state, 'ph', current_ph)
+    current_ph = next((v for k, v in current_state.items() if k.lower() == 'ph'), 6.0)
+    target_ph = next((v for k, v in target_state.items() if k.lower() == 'ph'), 6.0)
     ph_error = target_ph - current_ph
     
     # Deadband: Don't dose if within 0.1
@@ -67,6 +75,9 @@ def convert_targets_to_actions(current_state: Dict[str, float], target_state: Di
     target_ec = _lookup_float(target_state, 'ec', current_ec)
     ec_error = target_ec - current_ec
     
+    # Track water needed for EC control
+    water_for_dilution = 0.0
+    
     if abs(ec_error) > 0.1:
         if ec_error > 0:
             # Current is too low -> Add Nutrients
@@ -75,15 +86,43 @@ def convert_targets_to_actions(current_state: Dict[str, float], target_state: Di
         else:
             # Current is too high -> Dilute with Water
             # Rough heuristic: Add 1L water to drop EC by ~0.1
-            dilution_needed = abs(ec_error) * 10 
-            action.water_refill_l = round(dilution_needed, 2)
+            water_for_dilution = abs(ec_error) * 10
 
-    # 3. ATMOSPHERIC CONTROL (Fans)
+    # 3. TRANSPIRATION-BASED WATER REPLENISHMENT
+    # Plants lose water continuously through transpiration based on environmental conditions
+    # Base transpiration: 0.5 L/day for a typical hydroponic system
+    # Increase with temperature, decrease with humidity, increase with light
+    
+    base_transpiration_per_4h = 0.5 / 6  # ~0.083 L per 4-hour cycle
+    
+    # Temperature effect: higher = more transpiration (optimal ~25C, max at 30C+)
+    temp_factor = 1.0
+    if target_temp > 25:
+        temp_factor += (target_temp - 25) * 0.05  # +5% per degree above 25C
+    elif target_temp < 20:
+        temp_factor -= (20 - target_temp) * 0.02  # -2% per degree below 20C
+    temp_factor = max(0.5, min(2.0, temp_factor))  # Clamp between 0.5 and 2.0
+    
+    # Humidity effect: lower humidity = more transpiration (inverse)
+    humidity_factor = 1.0
+    if target_rh < 50:
+        humidity_factor += (50 - target_rh) * 0.01  # Drier = more transpiration
+    elif target_rh > 80:
+        humidity_factor -= (target_rh - 80) * 0.01  # Very humid = less transpiration
+    humidity_factor = max(0.5, min(2.0, humidity_factor))
+    
+    # Light effect: more light = more photosynthesis = more transpiration
+    light_factor = 1.0 + (target_light / 100.0) * 0.5  # 0% light = 1x, 100% light = 1.5x
+    
+    # Calculate total transpiration water needed
+    transpiration_water = base_transpiration_per_4h * temp_factor * humidity_factor * light_factor
+    transpiration_water = round(transpiration_water, 2)
+    
+    # 4. TOTAL WATER REFILL = Transpiration + Dilution
+    action.water_refill_l = round(transpiration_water + water_for_dilution, 2)
+
+    # 5. ATMOSPHERIC CONTROL (Fans)
     # Fans cool down air and lower humidity
-    current_temp = _lookup_float(current_state, 'air_temp', 25)
-    target_temp = _lookup_float(target_state, 'air_temp', current_temp)
-    current_rh = _lookup_float(current_state, 'humidity', 60)
-    target_rh = _lookup_float(target_state, 'humidity', current_rh)
     
     # Simple Logic: If too hot OR too humid, ramp up fans
     temp_error = current_temp - target_temp

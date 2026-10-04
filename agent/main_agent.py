@@ -93,6 +93,9 @@ def main():
                     print(f"   🎓 Bandit updated (action {training_data['prev_action_idx']}, reward {training_data['reward']})")
                 except Exception:
                     pass
+            # 🧠 BANDIT LEARNING: Update model based on previous cycle outcome
+            if judge_result:
+                supervisor.learn_from_outcome(fmu, judge_result)
 
             time.sleep(1)
             strat_name, strat_instr, action_idx = supervisor.get_strategic_goal(fmu)
@@ -165,8 +168,8 @@ def main():
         except Exception:
             pass
 
-        print("\nzzz Sleeping 20 seconds...")
-        time.sleep(20)
+        # print("\nzzz Sleeping 2 minutes...")
+        # time.sleep(120)
 
 
 if __name__ == "__main__":

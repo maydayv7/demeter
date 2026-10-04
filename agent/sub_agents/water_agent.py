@@ -10,36 +10,63 @@ from agent.sub_agents.water_and_atmospheric_dependencies.nodes import decide_nod
 from agent.sub_agents.water_and_atmospheric_dependencies.retrieval import ask_historian, ask_rag, diagnose_plant, ask_memory
 from agent.sub_agents.water_and_atmospheric_dependencies.tools import check_ph_safety, web_search
 
+# 🛡️ GUARDRAILS
+from agent.guardrails.validation import sanitize_input, validate_plan, create_validation_report
+
 # Configuration
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:e2b")
 
-# 🟢 UPDATE 1: Mention visual data availability in the prompt
+# �️ === WATER & NUTRIENT SPECIALIST (FARM-ONLY MODE) ===
 WATER_PROMPT = """
-You are the Water & Nutrient Specialist for a Hydroponic Farm.
-Your goal is to maintain HOMEOSTASIS in the root zone.
+ === WATER & NUTRIENT SPECIALIST (FARM-ONLY MODE) ===
 
---- RULES ---
-1. pH is Logarithmic. Never swing more than 0.5 in one cycle.
-2. If Strategy is 'Flush', EC must drop to < 0.2 dS/m.
-3. If Water Temp > 24C, you MUST recommend cooling or beneficial bacteria to prevent root rot.
+YOUR ROLE:
+You are an AI specialist controlling ONLY the water chemistry of a hydroponic farm.
+Your SOLE purpose is to maintain optimal nutrient uptake through pH, EC, and water temperature.
 
---- CURRENT CONTEXT ---
+ HARD CONSTRAINTS (NON-NEGOTIABLE - YOU WILL FAIL IF YOU VIOLATE THESE):
+1. pH: MUST stay between 4.0 and 7.5 (failure if outside range)
+2. EC (Electrical Conductivity): MUST be between 0.1 and 3.0 dS/m (failure if outside range)
+3. Water Temperature: MUST be between 12°C and 28°C (failure if outside range)
+
+ OPTIMIZATION TARGETS (aim for these if possible, but NEVER violate hard constraints):
+- pH: 5.5-6.5 (vegetables) or 6.0-7.0 (herbs) - NEVER shift >0.5 in one cycle
+- EC: Crop-specific ranges within 0.1-3.0 bounds
+- Water Temp: 20-24°C optimal (prevent root rot if >24°C)
+
+ CRITICAL SITUATION HANDLING:
+- If plant is in critical condition (health < 50%), STAY SAFE within hard constraints
+- Do NOT attempt aggressive nutrient corrections that violate bounds
+- Conservative stable values within bounds are BETTER than aggressive out-of-bounds values
+- The system will gradually improve through multiple safe cycles
+
+ CURRENT STATE:
 Sensors: {sensors}
 Strategy: {strategy}
 Research: {research}
 History: {history}
-Critique from Simulation: {critique}
-Visual Data: The latest camera image is available via the 'diagnose_plant' tool.
+Simulation Feedback: {critique}
+Visual Data: Available via 'diagnose_plant' tool if leaf yellowing/issues detected
 
-TASK: Output ONLY a valid JSON object with keys: 'ph', 'ec', 'water_temp'.
-Each value is the ABSOLUTE TARGET you want the reservoir to reach this cycle
-(e.g. 'ph': 6.0 means "set pH to 6.0") — NOT a delta or change amount. These
-values are fed directly into a dosing controller that computes
-target_value - current_value on its own; do not pre-subtract the current
-reading yourself.
-Do not include markdown formatting, code blocks, or any explanatory text outside the JSON. Return strictly the raw JSON.
-If you suspect root rot or issues with nutrient uptake (e.g. yellowing leaves), call 'diagnose_plant()' (with no arguments) to verify.
+ OUTPUT REQUIREMENTS:
+- Return ONLY valid JSON with exactly these keys: 'ph', 'ec', 'water_temp'
+- NEVER output dosages (acid_dosage_ml, etc.) - the system will compute those from your targets
+- pH: between 4.0 and 7.5
+- EC: between 0.1 and 3.0 dS/m
+- Water Temperature: between 12°C and 28°C
+- All values must be NUMBERS within these hard constraints
+- NO markdown, NO code blocks, NO explanations, NO text outside JSON
+- Invalid JSON will be REJECTED and cause a retry
+
+ FORBIDDEN:
+- Do NOT attempt to control air, light, or CO₂
+- Do NOT make suggestions unrelated to water chemistry
+- Do NOT return anything except the JSON object
+- Do NOT exceed hard constraint bounds under any circumstance
+
+ TIP: Call 'diagnose_plant()' (with no arguments) if you suspect nutrient deficiency (e.g., yellowing leaves) or root rot
+ 
 """
 
 class WaterAgent:
@@ -81,6 +108,8 @@ class WaterAgent:
         workflow.add_node("tools", execute_tools_node)
         workflow.add_node("simulate", simulate_node)
         workflow.add_node("finalize", finalize_node)
+        
+        workflow.add_node("skip_unsafe", lambda state: {"final_action": {"ph": 6.0, "ec": 1.5, "water_temp": 22.0}})
 
         # Flow
         workflow.set_entry_point("decide")
@@ -102,17 +131,19 @@ class WaterAgent:
             if state["simulation_result"]["passed"]:
                 return "finalize"
             elif state["retry_count"] > 3:
-                return "finalize"
+                print(f"[{self.name}] ⚠️ Max retries reached. Skipping execution (no-op).")
+                return "skip_unsafe"
             else:
                 return "decide"
 
         workflow.add_conditional_edges(
             "simulate", 
             check_simulation_result, 
-            {"finalize": "finalize", "decide": "decide"}
+            {"finalize": "finalize", "decide": "decide", "skip_unsafe": "skip_unsafe"}
         )
         
         workflow.add_edge("finalize", END)
+        workflow.add_edge("skip_unsafe", END)
         final_plan = workflow.compile()
         print("final_plan(Water): ", final_plan)
         return final_plan

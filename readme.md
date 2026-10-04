@@ -7,11 +7,31 @@ It combines reinforcement learning, computer vision, LLM-based reasoning, vector
 
 Built for the **Microsoft AI Unlocked - AI for India** hackathon, Demeter addresses food security and precision agriculture challenges in the Indian context, with full Hindi language support and a design philosophy accessible to rural operators.
 
+#### Click [here](https://drive.google.com/drive/folders/1g1hAuag-n2yUF-Bju1LGYRcejQoMrS7f) to view the **Project Deliverables**.
+
 ---
 
 ## Screenshots
 
-![Landing Page](./assets/screenshots/landing_page.png)
+<div align="center">
+  <img src="./assets/screenshots/Landing.png" width="900" alt="Landing Page">
+  <p><em>Landing Page</em></p>
+</div>
+
+|                                            Dashboard                                             |                                       Analytics                                        |                                   Intelligence                                   |
+| :----------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
+|            <img src="./assets/screenshots/Dashboard.png" width="350" alt="Dashboard">            |       <img src="./assets/screenshots/Analytics.png" width="350" alt="Analytics">       | <img src="./assets/screenshots/Intelligence.png" width="350" alt="Intelligence"> |
+|                                            **Alerts**                                            |                                     **Run Cycle**                                      |                                **Hindi Support**                                 |
+|               <img src="./assets/screenshots/Alerts.png" width="350" alt="Alerts">               |       <img src="./assets/screenshots/RunCycle.png" width="350" alt="Run Cycle">        |    <img src="./assets/screenshots/Hindi.png" width="350" alt="Hindi Support">    |
+|                                   **Crop Details (Overview)**                                    |                                 **Crop Details (Log)**                                 |                                  **Light Mode**                                  |
+| <img src="./assets/screenshots/CropDetailsOverview.png" width="350" alt="Crop Details Overview"> | <img src="./assets/screenshots/CropDetailsLog.png" width="350" alt="Crop Details Log"> |   <img src="./assets/screenshots/LightMode.png" width="350" alt="Light Mode">    |
+|                                         **Onboarding 1**                                         |                                    **Onboarding 2**                                    |                                                                                  |
+|         <img src="./assets/screenshots/Onboarding1.png" width="350" alt="Onboarding 1">          |    <img src="./assets/screenshots/Onboarding2.png" width="350" alt="Onboarding 2">     |                                                                                  |
+
+<div align="center">
+  <img src="./assets/screenshots/Help.png" width="900" alt="Help Section">
+  <p><em>Help Page</em></p>
+</div>
 
 ---
 
@@ -246,81 +266,88 @@ schema_version       String  (current: "1.2")
 ```
 demeter/
 ├── agent/
-│   ├── main_agent.py            # Orchestration loop (runs the 7-agent cycle)
-│   ├── memory.py                # FarmMemory class (Mem0 + Qdrant)
+│   ├── main_agent.py                # Orchestration loop (runs the 7-agent cycle)
+│   ├── memory.py                    # FarmMemory class (Mem0 + Qdrant)
+│   ├── guardrails/
+│   │   ├── README.md                # Guardrails documentation
+│   │   └── validation.py            # Input sanitization, bounds checking, injection detection
+│   ├── model/
+│   │   └── plant_disease_model.pt   # Plant disease detection model
 │   ├── Marl/
-│   │   ├── bandit.py            # Contextual Bandit (LinGreedy, 15 arms)
-│   │   ├── strategies.py        # Strategy definitions
-│   │   └── train-bandit.py      # Offline training script
+│   │   ├── bandit.py                # Contextual Bandit (LinGreedy, 15 arms)
+│   │   ├── strategies.py            # Strategy definitions
+│   │   ├── train-bandit.py          # Offline training script
+│   │   └── model_bandit_greedy.pkl  # Trained bandit model weights
 │   ├── Sentinel/
-│   │   ├── agent.py             # FMUBuilder - creates fused vectors
-│   │   ├── fmu.py               # FMU dataclass
+│   │   ├── agent.py                 # FMUBuilder - creates fused vectors
+│   │   ├── fmu.py                   # FMU dataclass
 │   │   └── Encoders/
-│   │       ├── Vision.py        # CLIP ViT-B/32 image encoder
-│   │       └── TimeSeries.py    # LSTM-based sensor encoder
+│   │       ├── Vision.py            # CLIP ViT-B/32 image encoder
+│   │       └── TimeSeries.py        # LSTM-based sensor encoder
 │   ├── Qdrant/
-│   │   ├── Client.py            # Qdrant client singleton
-│   │   ├── Setup.py             # Collection initialization
-│   │   ├── Store.py             # FMU storage helpers
-│   │   └── Search.py            # Similarity search helpers
+│   │   ├── Client.py                # Qdrant client singleton
+│   │   ├── Setup.py                 # Collection initialization
+│   │   ├── Store.py                 # FMU storage helpers
+│   │   └── Search.py                # Similarity search helpers
 │   ├── sub_agents/
-│   │   ├── base_agent.py        # BaseReasoningAgent (Azure OpenAI client)
-│   │   ├── fetching_agent.py    # FetchingAgent - polls simulator, builds FMU
-│   │   ├── judge_agent.py       # JudgeAgent - reward evaluation (LangGraph)
-│   │   ├── atmospheric_agent.py # AtmosphericAgent - climate planning (LangGraph)
-│   │   ├── water_agent.py       # WaterAgent - nutrient planning (LangGraph)
-│   │   ├── Supervisor.py        # SupervisorAgent - strategy + synthesis
-│   │   ├── Researcher.py        # ResearcherAgent - RAG knowledge retrieval
-│   │   ├── Explainer.py         # ExplainerAgent - chain-of-thought log generation
-│   │   ├── Doctor.py            # VisionAgent - plant disease detection (Azure Custom Vision)
+│   │   ├── base_agent.py            # BaseReasoningAgent (Azure OpenAI client)
+│   │   ├── fetching_agent.py        # FetchingAgent - polls simulator, builds FMU
+│   │   ├── judge_agent.py           # JudgeAgent - reward evaluation (LangGraph)
+│   │   ├── atmospheric_agent.py     # AtmosphericAgent - climate planning (LangGraph)
+│   │   ├── water_agent.py           # WaterAgent - nutrient planning (LangGraph)
+│   │   ├── Supervisor.py            # SupervisorAgent - strategy + synthesis
+│   │   ├── Researcher.py            # ResearcherAgent - RAG knowledge retrieval
+│   │   ├── Explainer.py             # ExplainerAgent - chain-of-thought log generation
+│   │   ├── Doctor.py                # VisionAgent - plant disease detection (Azure Custom Vision)
 │   │   └── water_and_atmospheric_dependencies/
-│   │       ├── state.py         # LangGraph AgentState definition
-│   │       ├── nodes.py         # LangGraph node functions
-│   │       ├── tools.py         # LangChain tools (calculate_vpd, web_search)
-│   │       ├── physics_engine.py# LLM-based plan safety simulator
-│   │       └── retrieval.py     # LangChain tools (ask_rag, diagnose_plant, ask_memory)
+│   │       ├── state.py             # LangGraph AgentState definition
+│   │       ├── nodes.py             # LangGraph node functions
+│   │       ├── tools.py             # LangChain tools (calculate_vpd, web_search)
+│   │       ├── physics_engine.py    # LLM-based plan safety simulator
+│   │       └── retrieval.py         # LangChain tools (ask_rag, diagnose_plant, ask_memory)
 │   └── tools/
-│       ├── actuation.py         # Actuator command builders
-│       ├── db_tools.py          # Database utility tools
-│       ├── processing_tools.py  # Sensor processing utilities
-│       └── reset_memory.py      # Memory reset utility
+│       ├── actuation.py             # Actuator command builders
+│       ├── db_tools.py              # Database utility tools
+│       ├── processing_tools.py      # Sensor processing utilities
+│       └── reset_memory.py          # Memory reset utility
 │
 ├── backend/
 │   ├── server/
-│   │   ├── main.py              # FastAPI server (Python) - agent HTTP endpoints
-│   │   ├── functions.py         # Backend utility functions
-│   │   ├── rag_brain.py         # PDF ingestion pipeline for Knowledge Base
-│   │   ├── create-index.py      # Qdrant index setup script
-│   │   └── reset-db.py          # Database reset utility
+│   │   ├── main.py                  # FastAPI server (Python) - agent HTTP endpoints
+│   │   ├── functions.py             # Backend utility functions
+│   │   ├── rag_brain.py             # PDF ingestion pipeline for Knowledge Base
+│   │   ├── create-index.py          # Qdrant index setup script
+│   │   └── reset-db.py              # Database reset utility
 │   └── node_server/
-│       ├── index.js             # Express.js server - crop CRUD API + MongoDB init
+│       ├── index.js                 # Express.js server - crop CRUD API + MongoDB init
 │       ├── routes/
-│       │   ├── farmRoutes.js    # Farm/Qdrant history routes
-│       │   └── cropRoutes.js    # Crop CRUD routes
+│       │   ├── farmRoutes.js        # Farm/Qdrant history routes
+│       │   └── cropRoutes.js        # Crop CRUD routes
 │       ├── controllers/
 │       │   ├── farmController.js
 │       │   └── cropController.js
 │       ├── schema/
-│       │   └── cropSchema.js    # Mongoose schema (v1.2)
-│       └── config/db.js         # MongoDB + legacy DB connection
+│       │   └── cropSchema.js        # Mongoose schema (v1.2)
+│       └── config/db.js             # MongoDB + legacy DB connection
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js               # Router, providers, onboarding gate
-│   │   ├── pages/               # All 10 page components
-│   │   ├── components/          # Sidebar, AgentWidgets, Onboarding
-│   │   ├── hooks/               # useFarmData, useSettings, useTranslation
+│   │   ├── App.js                   # Router, providers, onboarding gate
+│   │   ├── pages/                   # All 10 page components
+│   │   ├── components/              # Sidebar, AgentWidgets, Onboarding
+│   │   ├── hooks/                   # useFarmData, useSettings, useTranslation
 │   │   ├── api/
 │   │   │   ├── agentApi.js
-│   │   │   └── farmApi.jsx      # MongoDB CRUD calls
-│   │   ├── utils/               # translations.js, dataUtils.js
-│   │   └── data/mockData.js     # Mock data for testing
+│   │   │   └── farmApi.jsx          # MongoDB CRUD calls
+│   │   ├── utils/                   # translations.js, dataUtils.js
+│   │   └── data/mockData.js         # Mock data for testing
 │   └── tailwind.config.js
 │
 ├── simulator/
-│   └── main.py                  # Multi-batch DigitalTwin fleet + Azure ADT sync
+│   └── main.py                      # Multi-batch DigitalTwin fleet + Azure ADT sync
 │
-├── Knowledge_Base/              # Drop agronomic PDFs here for RAG ingestion
+├── yolov8n.pt                       # Pre-trained YOLOv8 model
+├── Knowledge_Base/                  # Drop agronomic PDFs here for RAG ingestion
 ├── requirements.txt
 └── README.md
 ```

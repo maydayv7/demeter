@@ -14,8 +14,12 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from Qdrant.Store import store_fmu, COLLECTION_NAME
 from Qdrant.Client import client
 
+# 🛡️ GUARDRAILS
+from agent.guardrails.validation import sanitize_input
+
 # Import Agent instances
 from agent.sub_agents.fetching_agent import FetchingAgent
+from agent.sub_agents.judge_agent import JudgeAgent
 from agent.sub_agents.atmospheric_agent import AtmosphericAgent
 from agent.sub_agents.water_agent import WaterAgent
 from agent.sub_agents.Supervisor import SupervisorAgent
@@ -24,6 +28,7 @@ from agent.sub_agents.Explainer import ExplainerAgent
 
 # Global singletons to avoid re-initializing heavy models per request
 fetcher = FetchingAgent()
+judge = JudgeAgent()
 atmos_agent = AtmosphericAgent()
 water_agent = WaterAgent()
 researcher = ResearcherAgent()
@@ -319,10 +324,21 @@ async def process_cycle_stream(file: UploadFile, sensors_str: str, builder):
         await asyncio.sleep(0.5)
         yield f"data: {json.dumps({'agent': 'RESEARCHER', 'text': ' 📚 Found relevant scientific data.'})}\n\n"
 
+        # --- 3.5 JUDGE: Review previous cycle and update bandit ---
+        yield f"data: {json.dumps({'agent': 'JUDGE', 'text': '⚖️ Judge reviewing previous cycle outcome...'})}\n\n"
+        await asyncio.sleep(0.3)
+        judge_result = judge.review_previous_cycle(query_fmu, image_b64)
+        
+        # --- 3.6 BANDIT LEARNING: Update model based on previous cycle outcome ---
+        if judge_result:
+            yield f"data: {json.dumps({'agent': 'SUPERVISOR', 'text': '🧠 Supervisor learning from outcome...'})}\n\n"
+            await asyncio.sleep(0.3)
+            supervisor.learn_from_outcome(query_fmu, judge_result)
+        
+        await asyncio.sleep(0.3)
+
         # --- 4. AGENTS ---
-        strat_instr = "Maintain optimal crop-specific parameters."
-        strat_name = "STANDARD_MAINTENANCE"
-        action_idx = 0
+        strat_name, strat_instr, action_idx = supervisor.get_strategic_goal(query_fmu)
 
         yield f"data: {json.dumps({'agent': 'BANDIT', 'text': f'🎰 BANDIT STRATEGY: {strat_name}'})}\n\n"
         await asyncio.sleep(0.3)
@@ -403,6 +419,25 @@ async def process_text_query(text: str, crop_id: str = None):
     When crop_id is provided the caller has selected a specific crop, so we
     inject a should-match for that crop_id to bias results toward it.
     """
+    
+    # 🛡️ GUARDRAIL: Check for injection attempts and off-topic queries
+    sanitized_text, violations = sanitize_input(text)
+    
+    if violations:
+        print(f"⚠️ Query Security Alert:")
+        for v in violations:
+            print(f"   {v}")
+        
+        if len(violations) >= 3:
+            return {
+                "status": "error",
+                "message": "❌ Query blocked: Multiple security violations detected. Please ask only farm-related questions.",
+                "violations": violations
+            }
+    
+    # Use sanitized input
+    text = sanitized_text
+    
     system_prompt = """
     You are a Database Translator for an AI Hydroponic Farm.
     Your goal: Convert natural language queries into a precise JSON filter object.
@@ -618,6 +653,24 @@ async def process_ask_query(query: str, context: str, language: str):
     from the frontend.
     """
     try:
+        # 🛡️ GUARDRAIL: Check for injection attempts and off-topic queries
+        sanitized_query, violations = sanitize_input(query)
+        
+        if violations:
+            print(f"⚠️ Query Security Alert:")
+            for v in violations:
+                print(f"   {v}")
+            
+            if len(violations) >= 3:
+                return {
+                    "status": "error",
+                    "message": " Question blocked: Multiple security violations detected. Please ask only farm-related questions.",
+                    "violations": violations
+                }
+        
+        # Use sanitized input
+        query = sanitized_query
+        
         lang_instr = (
             "Respond entirely in Hindi."
             if language == "hi"
@@ -631,6 +684,7 @@ ROLE:
 - Compare crops when asked, citing their crop_id
 - Give actionable recommendations grounded in the data
 - Be concise: lead with the direct answer, then explain
+- SCOPE: Answer ONLY farm-related questions. Politely decline off-topic queries.
 
 REASONING:
 Wrap your internal reasoning in <thinking>...</thinking> before your answer.

@@ -37,6 +37,10 @@ import {
   EmptyState,
   LoadingShimmer,
 } from "../components/ui";
+import tomatoImg from "../assets/tomato.jpg";
+import basilImg from "../assets/basil.jpg";
+import strawberryImg from "../assets/strawberry.jpg";
+import lettuceImg from "../assets/lettuce.jpg";
 
 const STAGES_KEYS = [
   "stage_all",
@@ -398,14 +402,10 @@ export default function Dashboard() {
   const getImg = (name) => {
     if (!name) return null;
     const n = name.toLowerCase();
-    if (n.includes("tomato"))
-      return "https://images.unsplash.com/photo-1571680322279-a226e6a4cc2a?q=80&w=400";
-    if (n.includes("basil"))
-      return "https://images.unsplash.com/photo-1618375569909-3c8616cf7733?q=80&w=400";
-    if (n.includes("strawberry"))
-      return "https://images.unsplash.com/photo-1677694682771-f2a1eaa7b8d9?q=80&w=400";
-    // Default: lettuce
-    return "https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?q=80&w=400";
+    if (n.includes("tomato")) return tomatoImg;
+    if (n.includes("basil")) return basilImg;
+    if (n.includes("strawberry")) return strawberryImg;
+    return lettuceImg;
   };
 
   useEffect(() => {
@@ -423,7 +423,7 @@ export default function Dashboard() {
             cropId: p.crop_id || "-",
             name: p.crop || t("common_unknown"),
             statusMsg: rawStage || t("dash_status_growing"),
-            image: p.image_url || getImg(p.crop),
+            image: getImg(p.crop) || p.image_url,
             status: deriveCropStatus(p),
             maturity: calculateMaturity(p),
             harvestReady: isReadyToHarvest(p),

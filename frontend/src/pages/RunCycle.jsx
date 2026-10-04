@@ -1009,8 +1009,11 @@ export default function RunCycle() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div className="section-label">
-                  phase === "running" ? t("add_log_live") : phase === "done" ?
-                  t("add_log_done") : t("add_log_idle")
+                  {phase === "running"
+                    ? t("add_log_live")
+                    : phase === "done"
+                      ? t("add_log_done")
+                      : t("add_log_idle")}
                 </div>
                 {phase === "running" && (
                   <span
@@ -1023,7 +1026,7 @@ export default function RunCycle() {
                       color: "var(--red)",
                       border: "1px solid rgba(248,113,113,0.3)",
                       animation: "pulse 1.5s ease-in-out infinite",
-                      alignSelf: "center",
+                      marginTop: "-12px",
                     }}
                   >
                     {t("run_streaming")}

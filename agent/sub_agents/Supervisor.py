@@ -11,6 +11,10 @@ from agent.Marl.strategies import STRATEGIES, NUM_ACTIONS
 from agent.Qdrant.Store import store_fmu
 from agent.sub_agents.water_and_atmospheric_dependencies.physics_engine import predict_outcome
 from agent.sub_agents.water_and_atmospheric_dependencies.json_extract import extract_json_object
+
+# 🛡️ GUARDRAILS
+from agent.guardrails.validation import validate_plan, detect_hard_violations, create_validation_report
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -46,41 +50,30 @@ def check_cross_domain_conflicts(atmos, water):
     return conflicts
 
 def validate_hard_limits(plan):
-    violations = []
-
-    # Any field present but not a valid number is itself a hard violation —
-    # a malformed plan should never sail through to the actuator.
-    for key in ('ph', 'ec', 'humidity', 'air_temp', 'water_temp', 'co2', 'light_intensity'):
-        if key in plan:
-            try:
-                float(plan[key])
-            except (TypeError, ValueError):
-                violations.append(f"'{key}' = {plan[key]!r} is not a valid number.")
-
-    ph = _safe_float(plan, 'ph', 6.0)
-    ec = _safe_float(plan, 'ec', 1.0)
-    humidity = _safe_float(plan, 'humidity', 60)
-    air_temp = _safe_float(plan, 'air_temp', 24)
-    water_temp = _safe_float(plan, 'water_temp', 20)
-    co2 = _safe_float(plan, 'co2', 400)
-    light_intensity = _safe_float(plan, 'light_intensity', 500)
-
-    # Hard limits for Lettuce/General Hydroponics
-    if ph < 5.0: violations.append("pH < 5.0 is toxic.")
-    if ph > 7.5: violations.append("pH > 7.5 causes lockout.")
-    if ec < 0: violations.append("EC < 0 is physically impossible.")
-    if ec > 3.0: violations.append("EC > 3.0 is too high for lettuce.")
-    if humidity < 0 or humidity > 100: violations.append(f"Humidity {humidity}% is physically impossible.")
-    if humidity > 85: violations.append("Humidity > 85% guarantees mold.")
-    if air_temp < 5: violations.append(f"Air temp {air_temp}C is frost/chill damage risk.")
-    if air_temp > 40: violations.append(f"Air temp {air_temp}C is heat-stress/lethal for lettuce.")
-    if water_temp < 5: violations.append(f"Water temp {water_temp}C is root-shock risk.")
-    if water_temp > 35: violations.append(f"Water temp {water_temp}C promotes root rot / kills roots.")
-    if co2 < 0: violations.append("CO2 < 0 is physically impossible.")
-    if co2 > 2000: violations.append(f"CO2 {co2}ppm is toxic to plants and unsafe for humans.")
-    if light_intensity < 0: violations.append("light_intensity < 0 is physically impossible.")
-
-    return violations
+    """
+    Validates plan against hard limits using guardrails.
+    Returns list of violations.
+    """
+    has_violations, violations = detect_hard_violations(plan)
+    
+    if has_violations:
+        print(f"🚫 HARD LIMIT VIOLATIONS DETECTED:")
+        for v in violations:
+            print(f"   {v}")
+    
+    # Also check for obvious physics conflicts
+    additional_conflicts = []
+    
+    if plan.get('air_temp', 25) - plan.get('water_temp', 20) > 10:
+        additional_conflicts.append("⚠️ Thermal Shock Risk: Air/Water temp delta > 10°C")
+    
+    if plan.get('humidity', 60) < 40 and plan.get('ec', 1.0) > 2.5:
+        additional_conflicts.append("⚠️ Burn Risk: Low humidity + high EC")
+    
+    if plan.get('humidity', 60) > 85:
+        additional_conflicts.append("🚫 Mold Risk: Humidity > 85%")
+    
+    return violations + additional_conflicts
 
 # --- STATE DEFINITION ---
 from typing import TypedDict, Optional, Dict, Any, List
@@ -278,6 +271,20 @@ class SupervisorAgent:
                 "ec": current_sensors.get("EC", 1.5),
             }
 
+        current_sensors = fmu.metadata.get('sensors', {})
+        
+        # 🛡️ GUARDRAIL CHECK: Validate before executing
+        print(f"[{self.name}] 🛡️ Running guardrail validation...")
+        validation = validate_plan(final_targets)
+        
+        if validation["severity"] == "CRITICAL":
+            print(create_validation_report(final_targets))
+            print(f"[{self.name}] ⚠️ CRITICAL VIOLATIONS - Clamping to bounds...")
+            final_targets = validation["bounded_plan"]
+        
+        if validation["warnings"]:
+            print(f"[{self.name}] ⚠️ Warnings: {', '.join(validation['warnings'])}")
+        
         print(f"[{self.name}] ⚙️ Converting Targets to Actuator Commands...")
 
         sensor_vals = [
@@ -342,3 +349,58 @@ class SupervisorAgent:
         strategy_name = STRATEGIES[action_idx]
         
         return strategy_name, "Advisory Only", int(action_idx)
+
+    def learn_from_outcome(self, fmu, outcome_info):
+        """
+        Bandit Learning: Update the model based on action outcome.
+        
+        Args:
+            fmu: The FMU object containing metadata about the previous action
+            outcome_info: Either:
+                - Current plant health (0-100) from simulator, OR
+                - Reward score (-1.0 to 1.0) from judge
+        """
+        # Retrieve the action that was taken in the previous cycle
+        prev_action_idx = fmu.metadata.get("bandit_action_id")
+        if prev_action_idx is None:
+            return  # No previous action to learn from
+        
+        prev_action_idx = int(prev_action_idx)
+        
+        # Build the context vector (same as get_strategic_goal)
+        sensors = fmu.metadata.get('sensors', {})
+        fmu_vector = fmu.vector
+        vis_vec1 = np.array(fmu_vector) if isinstance(fmu_vector, list) else fmu_vector
+        vis_vec = vis_vec1[:512] if len(vis_vec1) >= 512 else None
+        if vis_vec is None or len(vis_vec) == 0: vis_vec = np.zeros(512)
+        
+        s_vec = np.array([
+            (float(sensors.get('pH', 6.0)) - 6.0) / 2.0, 
+            float(sensors.get('EC', 1.0)) / 3.0,
+            float(sensors.get('temp', 25.0)) / 40.0
+        ])
+        context_vector = np.concatenate([vis_vec, s_vec])
+        
+        # Handle reward: Can be health (0-100) or judge reward (-1 to 1)
+        if isinstance(outcome_info, dict):
+            reward = float(outcome_info.get("reward", 0.0))
+        else:
+            # Assume it's health (0-100), convert to normalized reward
+            health_val = float(outcome_info)
+            if health_val >= 85:
+                reward = 1.0  # Excellent
+            elif health_val >= 70:
+                reward = health_val / 100.0  # Good
+            elif health_val >= 50:
+                reward = (health_val / 100.0) * 0.5  # Mediocre
+            else:
+                reward = -1.0  # Terrible
+        
+        # Update the bandit model with this outcome
+        self.bandit.update(context_vector, prev_action_idx, reward)
+        
+        strategy_name = STRATEGIES.get(prev_action_idx, "UNKNOWN")
+        print(f"[{self.name}] 🧠 Bandit Learning: {strategy_name} (Action {prev_action_idx}) → Reward {reward:.2f}")
+        
+        # Save the updated model
+        self.bandit.save()

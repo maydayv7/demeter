@@ -6,6 +6,9 @@ const { initDB, connectMongoDB } = require("./config/db");
 const farmRoutes = require("./routes/farmRoutes");
 const cropRoutes = require("./routes/cropRoutes");
 
+const dns = require("node:dns/promises");
+dns.setServers(["1.1.1.1"]);
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 

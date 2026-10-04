@@ -11,6 +11,7 @@ from typing import List
 from PIL import Image
 from dotenv import load_dotenv
 from pymongo import MongoClient, ReturnDocument
+from pymongo.errors import ConfigurationError
 from datetime import datetime
 
 # Load env from root
@@ -20,14 +21,12 @@ load_dotenv(env_path)
 
 MONGO_URI = os.environ.get("MONGODB_URI")
 mongo_client = MongoClient(MONGO_URI)
-db = mongo_client["test"]  # Mongoose defaults to "test" when the URI has no db name segment
-
-# check db connection
 try:
-    mongo_client.admin.command("ping")
-    print("[DEBUG] Successfully connected to MongoDB")
-except Exception:
-    pass
+    db = mongo_client.get_default_database()
+except ConfigurationError:
+    db = mongo_client["test"]
+crops_collection = db["cropstates"]
+sim_state_collection = db["simulator_state"]
 
 print(f"[DEBUG] MongoDB connected to DB: '{db.name}'")
 print(f"[DEBUG] MONGO_URI = {MONGO_URI[:40] if MONGO_URI else 'NOT SET'}...")
@@ -109,6 +108,18 @@ class DigitalTwin:
         self.tank_volume = 100.0
         self.plant_health = 100.0
         self.residual_model = ResidualPhysicsNet(7, 4)
+        
+        # Try to load trained weights
+        trained_weights_path = os.path.join(current_dir, "residual_physics.pt")
+        if os.path.exists(trained_weights_path):
+            try:
+                checkpoint = torch.load(trained_weights_path, map_location="cpu")
+                self.residual_model.load_state_dict(checkpoint["model_state_dict"])
+                print(f"[DEBUG] Loaded trained ResidualPhysicsNet weights from {trained_weights_path}")
+            except Exception as e:
+                print(f"[WARNING] Failed to load trained weights: {e}. Using random initialization.")
+        else:
+            print(f"[DEBUG] Trained weights not found at {trained_weights_path}. Using random initialization.")
 
         self.history = {
             "ph": deque([float(self.state[0])] * 5, maxlen=HISTORY_LEN),
